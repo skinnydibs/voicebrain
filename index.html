@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1178,21 +1177,16 @@ nav {
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settings-modal">
   <div class="modal">
-    <div class="modal-title">API Keys</div>
-    <div class="modal-sub">Add your keys to enable voice transcription and AI organisation</div>
+    <div class="modal-title">API Key</div>
+    <div class="modal-sub">One OpenAI key powers everything — voice transcription and AI organisation</div>
     <div class="modal-field">
-      <div class="modal-label">OpenAI API Key (for Whisper transcription)</div>
+      <div class="modal-label">OpenAI API Key</div>
       <input class="modal-input" type="password" id="openai-key" placeholder="sk-...">
-      <div class="modal-hint">Get yours at platform.openai.com → API Keys</div>
-    </div>
-    <div class="modal-field">
-      <div class="modal-label">Anthropic API Key (for AI organisation)</div>
-      <input class="modal-input" type="password" id="anthropic-key" placeholder="sk-ant-...">
-      <div class="modal-hint">Get yours at console.anthropic.com → API Keys</div>
+      <div class="modal-hint">Get yours at platform.openai.com → API Keys. Add $5 credit to get started.</div>
     </div>
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeSettings()">Cancel</button>
-      <button class="btn-save" onclick="saveSettings()">Save keys</button>
+      <button class="btn-save" onclick="saveSettings()">Save key</button>
     </div>
   </div>
 </div>
@@ -1251,7 +1245,7 @@ window.onload = () => {
   setInterval(checkReminders, 60000);
 
   // Auto-open settings if no keys
-  if (!settings.anthropicKey) {
+  if (!settings.openaiKey) {
     setTimeout(openSettings, 600);
   }
 };
@@ -1282,21 +1276,19 @@ function openSettings() { document.getElementById('settings-modal').classList.ad
 function closeSettings() { document.getElementById('settings-modal').classList.remove('show'); }
 function loadKeys() {
   if (settings.openaiKey) document.getElementById('openai-key').value = settings.openaiKey;
-  if (settings.anthropicKey) document.getElementById('anthropic-key').value = settings.anthropicKey;
   updateApiStatus();
 }
 function saveSettings() {
   settings.openaiKey = document.getElementById('openai-key').value.trim();
-  settings.anthropicKey = document.getElementById('anthropic-key').value.trim();
   localStorage.setItem('vb_settings', JSON.stringify(settings));
   updateApiStatus();
   closeSettings();
-  showToast('API keys saved ✓');
+  showToast('API key saved ✓');
 }
 function updateApiStatus() {
-  const ok = settings.openaiKey && settings.anthropicKey;
+  const ok = !!settings.openaiKey;
   document.getElementById('api-dot').className = 'api-dot' + (ok ? ' ok' : '');
-  document.getElementById('api-label').textContent = ok ? 'Keys active' : 'Add API Keys';
+  document.getElementById('api-label').textContent = ok ? 'Key active' : 'Add API Key';
 }
 
 // ═══ RECORDING ═══
@@ -1387,7 +1379,7 @@ function selectCat(el) {
 async function saveTextNote() {
   const text = document.getElementById('text-input').value.trim();
   if (!text) return;
-  if (!settings.anthropicKey) { openSettings(); return; }
+  if (!settings.openaiKey) { openSettings(); return; }
 
   document.getElementById('save-btn').disabled = true;
   showProcessing('Organising with Claude...');
@@ -1414,16 +1406,14 @@ Note: "${text.replace(/"/g, "'")}"
 
 Respond with ONLY the JSON, no markdown, no explanation.`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': settings.anthropicKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Authorization': 'Bearer ' + settings.openaiKey
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'gpt-4o-mini',
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -1431,11 +1421,10 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
 
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
-    const raw = data.content[0].text.trim().replace(/```json|```/g,'').trim();
+    const raw = data.choices[0].message.content.trim().replace(/```json|```/g,'').trim();
     organised = JSON.parse(raw);
   } catch(e) {
     console.error('AI error:', e);
-    // Fallback if AI fails — note still saves without AI organisation
     organised = {
       category: selectedCat || 'general',
       title: text.slice(0, 60),
@@ -1444,12 +1433,11 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
       reminderTime: null,
       linkedThemes: []
     };
-    // Show a readable error
     const msg = e.message || '';
-    if (msg.includes('billing') || msg.includes('credit') || msg.includes('payment')) {
-      showToast('⚠️ API billing issue — check console.anthropic.com. Note saved without AI.');
+    if (msg.includes('quota') || msg.includes('billing') || msg.includes('credit')) {
+      showToast('⚠️ OpenAI quota exceeded — add credits at platform.openai.com. Note saved.');
     } else if (msg.includes('invalid') || msg.includes('auth') || msg.includes('key')) {
-      showToast('⚠️ Invalid API key — check your Anthropic key. Note saved without AI.');
+      showToast('⚠️ Invalid API key — tap the key indicator to update it. Note saved.');
     } else {
       showToast('Note saved (AI unavailable — ' + msg.slice(0,40) + ')');
     }
