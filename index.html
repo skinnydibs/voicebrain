@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -962,7 +963,10 @@ nav {
   font-weight: 500;
   z-index: 400;
   transition: transform 0.3s ease;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 90vw;
+  text-align: center;
+  line-height: 1.4;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
@@ -978,14 +982,54 @@ nav {
 .bg-book { background: var(--book); }
 .bg-general { background: var(--general); }
 
+/* Mobile bottom nav */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(250,249,247,0.96);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  justify-content: space-around;
+}
+.mob-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--text3);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  transition: color 0.15s;
+}
+.mob-nav-btn.active { color: var(--accent); }
+.mob-nav-icon { font-size: 20px; line-height: 1; }
+
 @media (max-width: 640px) {
   nav { padding: 0 16px; }
   .nav-links { display: none; }
+  .api-pill span { display: none; }
+  .mobile-nav { display: flex; }
   .timeline-stats { grid-template-columns: repeat(2,1fr); }
   .notes-grid { grid-template-columns: 1fr; }
   #screen-capture, #screen-dashboard, #screen-timeline, #screen-detail {
     padding-left: 16px; padding-right: 16px;
+    padding-bottom: 80px;
   }
+  #screen-mindmap { padding-bottom: 60px; }
+  .capture-header h1 { font-size: 26px; }
+  .modal { width: 92vw; padding: 24px 20px; }
+  .toast { bottom: 80px; }
+  .record-btn { width: 80px; height: 80px; font-size: 26px; }
+  .detail-title { font-size: 24px; }
+  .dash-title { font-size: 22px; }
+  .timeline-title { font-size: 22px; }
 }
 </style>
 </head>
@@ -1155,6 +1199,22 @@ nav {
 
 <div class="toast" id="toast"></div>
 
+<!-- Mobile bottom nav -->
+<div class="mobile-nav" id="mobile-nav">
+  <button class="mob-nav-btn active" onclick="showScreen('capture'); setMobNav(this)">
+    <span class="mob-nav-icon">✦</span>Capture
+  </button>
+  <button class="mob-nav-btn" onclick="showScreen('dashboard'); setMobNav(this)">
+    <span class="mob-nav-icon">◫</span>Notes
+  </button>
+  <button class="mob-nav-btn" onclick="showScreen('timeline'); setMobNav(this)">
+    <span class="mob-nav-icon">◷</span>Timeline
+  </button>
+  <button class="mob-nav-btn" onclick="showScreen('mindmap'); setMobNav(this)">
+    <span class="mob-nav-icon">✿</span>Map
+  </button>
+</div>
+
 <script>
 // ═══ STATE ═══
 let notes = JSON.parse(localStorage.getItem('vb_notes') || '[]');
@@ -1211,6 +1271,11 @@ function showScreen(name) {
 }
 
 function goBack() { showScreen(previousScreen); }
+
+function setMobNav(btn) {
+  document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
 
 // ═══ SETTINGS ═══
 function openSettings() { document.getElementById('settings-modal').classList.add('show'); }
@@ -1358,7 +1423,7 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -1369,7 +1434,8 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
     const raw = data.content[0].text.trim().replace(/```json|```/g,'').trim();
     organised = JSON.parse(raw);
   } catch(e) {
-    // Fallback if AI fails
+    console.error('AI error:', e);
+    // Fallback if AI fails — note still saves without AI organisation
     organised = {
       category: selectedCat || 'general',
       title: text.slice(0, 60),
@@ -1378,6 +1444,15 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
       reminderTime: null,
       linkedThemes: []
     };
+    // Show a readable error
+    const msg = e.message || '';
+    if (msg.includes('billing') || msg.includes('credit') || msg.includes('payment')) {
+      showToast('⚠️ API billing issue — check console.anthropic.com. Note saved without AI.');
+    } else if (msg.includes('invalid') || msg.includes('auth') || msg.includes('key')) {
+      showToast('⚠️ Invalid API key — check your Anthropic key. Note saved without AI.');
+    } else {
+      showToast('Note saved (AI unavailable — ' + msg.slice(0,40) + ')');
+    }
   }
 
   const note = {
