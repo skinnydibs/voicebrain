@@ -969,6 +969,50 @@ nav {
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
+/* Search bar */
+.search-wrap {
+  margin-bottom: 20px;
+  position: relative;
+}
+.search-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 16px 10px 38px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-input:focus { border-color: var(--border2); }
+.search-input::placeholder { color: var(--text3); }
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--text3);
+  pointer-events: none;
+}
+.search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: var(--text3);
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  display: none;
+}
+.search-clear.show { display: block; }
+
 /* Category colors helper */
 .cat-todo { color: var(--todo); }
 .cat-reminder { color: var(--reminder); }
@@ -1039,7 +1083,7 @@ nav {
     <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:500;">Voice<span style="color:var(--accent)">Brain</span></div>
   </div>
   <div class="nav-links">
-    <button class="nav-btn active" onclick="showScreen('capture')" data-screen="capture">✦ Capture</button>
+    <button class="nav-btn active" onclick="showScreen('capture')" data-screen="capture">Capture</button>
     <button class="nav-btn" onclick="showScreen('dashboard')" data-screen="dashboard">Dashboard</button>
     <button class="nav-btn" onclick="showScreen('timeline')" data-screen="timeline">Timeline</button>
     <button class="nav-btn" onclick="showScreen('mindmap')" data-screen="mindmap">Mind Map</button>
@@ -1060,7 +1104,7 @@ nav {
   </div>
 
   <div class="record-area">
-    <button class="record-btn" id="record-btn" onclick="toggleRecording()">🎙</button>
+    <button class="record-btn" id="record-btn" onmousedown="startRecording()" onmouseup="stopRecording()" onmouseleave="stopRecording()" ontouchstart="startRecording(event)" ontouchend="stopRecording()">●</button>
     <div class="record-label" id="record-label">Hold to record</div>
     <div class="record-timer" id="record-timer"></div>
     <div class="waveform" id="waveform">
@@ -1075,10 +1119,10 @@ nav {
     <textarea class="text-input" id="text-input" placeholder="Anything — a task, a thought, a quote, a reminder..." rows="4"></textarea>
     <div class="text-capture-footer">
       <div class="category-pills">
-        <div class="cat-pill" data-cat="todo" onclick="selectCat(this)">✅ Todo</div>
-        <div class="cat-pill" data-cat="reminder" onclick="selectCat(this)">⏰ Reminder</div>
-        <div class="cat-pill" data-cat="inspiration" onclick="selectCat(this)">💡 Idea</div>
-        <div class="cat-pill" data-cat="book" onclick="selectCat(this)">📚 Book</div>
+        <div class="cat-pill" data-cat="todo" onclick="selectCat(this)">Todo</div>
+        <div class="cat-pill" data-cat="reminder" onclick="selectCat(this)">Reminder</div>
+        <div class="cat-pill" data-cat="inspiration" onclick="selectCat(this)">Idea</div>
+        <div class="cat-pill" data-cat="book" onclick="selectCat(this)">Book</div>
       </div>
       <button class="btn-save" id="save-btn" onclick="saveTextNote()">Save →</button>
     </div>
@@ -1102,13 +1146,19 @@ nav {
       <div class="dash-title">Your Notes</div>
       <div class="dash-count" id="dash-count">0 notes</div>
     </div>
+    <button class="btn-outline" onclick="exportNotes()">Export</button>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">○</span>
+    <input class="search-input" type="text" id="dash-search" placeholder="Search notes, tags, content..." oninput="searchNotes(this.value)">
+    <button class="search-clear" id="search-clear" onclick="clearSearch()">×</button>
   </div>
   <div class="filter-bar">
     <button class="filter-btn active" data-filter="all" onclick="filterNotes(this)">All</button>
-    <button class="filter-btn" data-filter="todo" onclick="filterNotes(this)">✅ Todos</button>
-    <button class="filter-btn" data-filter="reminder" onclick="filterNotes(this)">⏰ Reminders</button>
-    <button class="filter-btn" data-filter="inspiration" onclick="filterNotes(this)">💡 Ideas</button>
-    <button class="filter-btn" data-filter="book" onclick="filterNotes(this)">📚 Books</button>
+    <button class="filter-btn" data-filter="todo" onclick="filterNotes(this)">Todos</button>
+    <button class="filter-btn" data-filter="reminder" onclick="filterNotes(this)">Reminders</button>
+    <button class="filter-btn" data-filter="inspiration" onclick="filterNotes(this)">Ideas</button>
+    <button class="filter-btn" data-filter="book" onclick="filterNotes(this)">Books</button>
   </div>
   <div class="notes-grid" id="notes-grid"></div>
 </div>
@@ -1128,6 +1178,13 @@ nav {
     <div class="tl-period-label" id="tl-label">Today</div>
     <button class="tl-nav-btn" onclick="tlNav(1)">→</button>
   </div>
+  <div class="filter-bar" id="tl-filter-bar">
+    <button class="filter-btn active" data-filter="all" onclick="filterTimeline(this)">All</button>
+    <button class="filter-btn" data-filter="todo" onclick="filterTimeline(this)">Todos</button>
+    <button class="filter-btn" data-filter="reminder" onclick="filterTimeline(this)">Reminders</button>
+    <button class="filter-btn" data-filter="inspiration" onclick="filterTimeline(this)">Ideas</button>
+    <button class="filter-btn" data-filter="book" onclick="filterTimeline(this)">Books</button>
+  </div>
   <div class="timeline-stats" id="tl-stats"></div>
   <div class="timeline-groups" id="tl-groups"></div>
 </div>
@@ -1137,8 +1194,8 @@ nav {
   <div class="mindmap-toolbar">
     <div class="mindmap-title">Mind Map</div>
     <div class="mindmap-controls">
-      <button class="mm-btn" onclick="regenerateMindMap()">⟳ Refresh</button>
-      <button class="mm-btn" onclick="resetMapView()">⊙ Reset View</button>
+      <button class="mm-btn" onclick="regenerateMindMap()">Refresh</button>
+      <button class="mm-btn" onclick="resetMapView()">Reset View</button>
     </div>
   </div>
   <canvas id="mindmap-canvas"></canvas>
@@ -1196,16 +1253,16 @@ nav {
 <!-- Mobile bottom nav -->
 <div class="mobile-nav" id="mobile-nav">
   <button class="mob-nav-btn active" onclick="showScreen('capture'); setMobNav(this)">
-    <span class="mob-nav-icon">✦</span>Capture
+    <span class="mob-nav-icon"></span>Capture
   </button>
   <button class="mob-nav-btn" onclick="showScreen('dashboard'); setMobNav(this)">
-    <span class="mob-nav-icon">◫</span>Notes
+    <span class="mob-nav-icon"></span>Notes
   </button>
   <button class="mob-nav-btn" onclick="showScreen('timeline'); setMobNav(this)">
-    <span class="mob-nav-icon">◷</span>Timeline
+    <span class="mob-nav-icon"></span>Timeline
   </button>
   <button class="mob-nav-btn" onclick="showScreen('mindmap'); setMobNav(this)">
-    <span class="mob-nav-icon">✿</span>Map
+    <span class="mob-nav-icon"></span>Map
   </button>
 </div>
 
@@ -1214,8 +1271,10 @@ nav {
 let notes = JSON.parse(localStorage.getItem('vb_notes') || '[]');
 let settings = JSON.parse(localStorage.getItem('vb_settings') || '{}');
 let currentFilter = 'all';
+let searchQuery = '';
 let tlMode = 'day';
 let tlOffset = 0;
+let tlFilter = 'all';
 let activeNoteId = null;
 let previousScreen = 'dashboard';
 let mediaRecorder = null;
@@ -1240,6 +1299,7 @@ window.onload = () => {
   renderRecent();
   renderDashboard();
   renderTimeline();
+  requestNotifPermission();
 
   // Reminder checker
   setInterval(checkReminders, 60000);
@@ -1283,7 +1343,7 @@ function saveSettings() {
   localStorage.setItem('vb_settings', JSON.stringify(settings));
   updateApiStatus();
   closeSettings();
-  showToast('API key saved ✓');
+  showToast('API key saved');
 }
 function updateApiStatus() {
   const ok = !!settings.openaiKey;
@@ -1292,8 +1352,9 @@ function updateApiStatus() {
 }
 
 // ═══ RECORDING ═══
-async function toggleRecording() {
-  if (isRecording) { stopRecording(); return; }
+async function startRecording(e) {
+  if (e) e.preventDefault();
+  if (isRecording) return;
 
   if (!settings.openaiKey) {
     openSettings();
@@ -1306,18 +1367,18 @@ async function toggleRecording() {
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
 
-    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.ondataavailable = ev => { if (ev.data.size > 0) audioChunks.push(ev.data); };
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      await processAudio();
+      if (audioChunks.length) await processAudio();
     };
 
     mediaRecorder.start();
     isRecording = true;
     recordSeconds = 0;
     document.getElementById('record-btn').classList.add('recording');
-    document.getElementById('record-btn').textContent = '⏹';
-    document.getElementById('record-label').textContent = 'Recording... tap to stop';
+    document.getElementById('record-btn').textContent = '■';
+    document.getElementById('record-label').textContent = 'Recording — release to stop';
     document.getElementById('waveform').classList.add('active');
     recordTimer = setInterval(() => {
       recordSeconds++;
@@ -1336,7 +1397,7 @@ function stopRecording() {
     isRecording = false;
     clearInterval(recordTimer);
     document.getElementById('record-btn').classList.remove('recording');
-    document.getElementById('record-btn').textContent = '🎙';
+    document.getElementById('record-btn').textContent = '●';
     document.getElementById('record-label').textContent = 'Hold to record';
     document.getElementById('record-timer').textContent = '';
     document.getElementById('waveform').classList.remove('active');
@@ -1360,7 +1421,7 @@ async function processAudio() {
     if (!data.text) throw new Error(data.error?.message || 'Transcription failed');
 
     const transcript = data.text;
-    showProcessing('Organising with Claude...');
+    showProcessing('Organising with AI...');
     await organiseAndSave(transcript, 'voice');
   } catch(e) {
     hideProcessing();
@@ -1382,7 +1443,7 @@ async function saveTextNote() {
   if (!settings.openaiKey) { openSettings(); return; }
 
   document.getElementById('save-btn').disabled = true;
-  showProcessing('Organising with Claude...');
+  showProcessing('Organising with AI...');
   await organiseAndSave(text, 'text');
   document.getElementById('text-input').value = '';
   selectedCat = null;
@@ -1435,9 +1496,9 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
     };
     const msg = e.message || '';
     if (msg.includes('quota') || msg.includes('billing') || msg.includes('credit')) {
-      showToast('⚠️ OpenAI quota exceeded — add credits at platform.openai.com. Note saved.');
+      showToast('OpenAI quota exceeded — add credits at platform.openai.com. Note saved.');
     } else if (msg.includes('invalid') || msg.includes('auth') || msg.includes('key')) {
-      showToast('⚠️ Invalid API key — tap the key indicator to update it. Note saved.');
+      showToast('Invalid API key — tap the key indicator to update it. Note saved.');
     } else {
       showToast('Note saved (AI unavailable — ' + msg.slice(0,40) + ')');
     }
@@ -1462,7 +1523,7 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
   saveNotes();
   hideProcessing();
   renderRecent();
-  showToast('Note saved ✓');
+  showToast('Note saved');
 
   if (note.reminderTime) {
     scheduleReminder(note);
@@ -1482,7 +1543,7 @@ function triggerReminder(note) {
   if (Notification.permission === 'granted') {
     new Notification('VoiceBrain Reminder', { body: note.title, icon: '' });
   } else {
-    showToast('⏰ Reminder: ' + note.title);
+    showToast('Reminder: ' + note.title);
   }
 }
 
@@ -1530,18 +1591,51 @@ function renderRecent() {
 // ═══ DASHBOARD ═══
 function filterNotes(btn) {
   currentFilter = btn.dataset.filter;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#screen-dashboard .filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderDashboard();
 }
 
+function searchNotes(query) {
+  searchQuery = query.trim().toLowerCase();
+  document.getElementById('search-clear').classList.toggle('show', !!searchQuery);
+  renderDashboard();
+}
+
+function clearSearch() {
+  searchQuery = '';
+  document.getElementById('dash-search').value = '';
+  document.getElementById('search-clear').classList.remove('show');
+  renderDashboard();
+}
+
+function exportNotes() {
+  const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'voicebrain-export-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function renderDashboard() {
-  const filtered = currentFilter === 'all' ? notes : notes.filter(n => n.category === currentFilter);
+  let filtered = currentFilter === 'all' ? notes : notes.filter(n => n.category === currentFilter);
+  if (searchQuery) {
+    filtered = filtered.filter(n =>
+      n.title.toLowerCase().includes(searchQuery) ||
+      (n.summary || '').toLowerCase().includes(searchQuery) ||
+      (n.text || '').toLowerCase().includes(searchQuery) ||
+      (n.tags || []).some(t => t.toLowerCase().includes(searchQuery))
+    );
+  }
   document.getElementById('dash-count').textContent = filtered.length + ' note' + (filtered.length !== 1 ? 's' : '');
   const grid = document.getElementById('notes-grid');
 
   if (!filtered.length) {
-    grid.innerHTML = `<div class="empty-state"><h3>Nothing here yet</h3><p>Capture your first note on the home screen</p></div>`;
+    grid.innerHTML = searchQuery
+      ? `<div class="empty-state"><h3>No results</h3><p>Nothing matches "${searchQuery}"</p></div>`
+      : `<div class="empty-state"><h3>Nothing here yet</h3><p>Capture your first note on the home screen</p></div>`;
     return;
   }
 
@@ -1555,9 +1649,9 @@ function renderDashboard() {
       <div class="note-preview">${n.summary || n.text}</div>
       ${n.tags.length ? `<div class="note-tags">${n.tags.map(t=>`<span class="tag">#${t}</span>`).join('')}</div>` : ''}
       <div class="note-card-footer">
-        <span class="note-source">${n.source === 'voice' ? '🎙 Voice' : '⌨ Text'}</span>
+        <span class="note-source">${n.source === 'voice' ? 'Voice' : 'Text'}</span>
         ${n.category === 'todo' ? `<div class="note-todo-check ${n.done?'done':''}" onclick="toggleDone(event,'${n.id}')">${n.done?'✓':''}</div>` : ''}
-        ${n.reminderTime ? `<span style="font-size:11px;color:var(--reminder)">⏰ ${formatDateTime(n.reminderTime)}</span>` : ''}
+        ${n.reminderTime ? `<span style="font-size:11px;color:var(--reminder)">${formatDateTime(n.reminderTime)}</span>` : ''}
       </div>
     </div>
   `).join('');
@@ -1623,7 +1717,7 @@ function saveDetail() {
   note.title = document.getElementById('detail-title').value;
   note.body = document.getElementById('detail-body').value;
   saveNotes();
-  showToast('Saved ✓');
+  showToast('Saved');
 }
 
 function deleteNote() {
@@ -1637,6 +1731,13 @@ function deleteNote() {
 }
 
 // ═══ TIMELINE ═══
+function filterTimeline(btn) {
+  tlFilter = btn.dataset.filter;
+  document.querySelectorAll('#tl-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTimeline();
+}
+
 function setTlMode(mode, btn) {
   tlMode = mode;
   tlOffset = 0;
@@ -1659,7 +1760,7 @@ function renderTimeline() {
     return d >= start && d <= end;
   });
 
-  // Stats
+  // Stats always show all categories regardless of filter
   const cats = ['todo','reminder','inspiration','book'];
   const catNames = { todo:'Todos', reminder:'Reminders', inspiration:'Ideas', book:'Books' };
   document.getElementById('tl-stats').innerHTML = cats.map(c => {
@@ -1670,9 +1771,12 @@ function renderTimeline() {
     </div>`;
   }).join('');
 
+  // Apply category filter for the list
+  const listNotes = tlFilter === 'all' ? periodNotes : periodNotes.filter(n => n.category === tlFilter);
+
   // Group by day
   const groups = {};
-  periodNotes.forEach(n => {
+  listNotes.forEach(n => {
     const d = new Date(n.createdAt);
     const key = d.toDateString();
     if (!groups[key]) groups[key] = [];
@@ -1681,7 +1785,8 @@ function renderTimeline() {
 
   const groupsEl = document.getElementById('tl-groups');
   if (!Object.keys(groups).length) {
-    groupsEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);font-size:14px;">No notes in this period</div>`;
+    const label = tlFilter === 'all' ? 'notes' : catLabel(tlFilter).toLowerCase() + 's';
+    groupsEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);font-size:14px;">No ${label} in this period</div>`;
     return;
   }
 
@@ -1975,6 +2080,43 @@ function setupMapEvents(canvas) {
     const factor = e.deltaY > 0 ? 0.92 : 1.09;
     mapTransform.scale = Math.min(3, Math.max(0.2, mapTransform.scale * factor));
     drawMap();
+  };
+
+  canvas.ontouchstart = (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      isDraggingMap = true;
+      lastMapMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+      isDraggingMap = false;
+      lastTouchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  };
+
+  canvas.ontouchmove = (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDraggingMap) {
+      mapTransform.x += e.touches[0].clientX - lastMapMouse.x;
+      mapTransform.y += e.touches[0].clientY - lastMapMouse.y;
+      lastMapMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      drawMap();
+    } else if (e.touches.length === 2 && lastTouchDist !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      mapTransform.scale = Math.min(3, Math.max(0.2, mapTransform.scale * (dist / lastTouchDist)));
+      lastTouchDist = dist;
+      drawMap();
+    }
+  };
+
+  canvas.ontouchend = (e) => {
+    if (e.touches.length < 2) lastTouchDist = null;
+    if (e.touches.length === 0) isDraggingMap = false;
   };
 }
 
