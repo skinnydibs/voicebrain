@@ -1030,7 +1030,7 @@ nav {
   position: fixed;
   bottom: 28px;
   left: 50%;
-  transform: translateX(-50%) translateY(80px);
+  transform: translateX(-50%) translateY(calc(100% + 60px));
   background: var(--text);
   color: var(--bg);
   padding: 10px 20px;
@@ -1043,9 +1043,11 @@ nav {
   max-width: 90vw;
   text-align: center;
   line-height: 1.4;
+  cursor: default;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
-.toast-undo { text-decoration: underline; margin-left: 10px; cursor: pointer; opacity: 0.85; }
+.toast.undoable { cursor: pointer; }
+.toast-count { opacity: 0.6; font-size: 11px; margin-left: 6px; }
 
 /* Search bar */
 .search-wrap {
@@ -1111,7 +1113,7 @@ nav {
   background: rgba(250,249,247,0.96);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
-  z-index: 100;
+  z-index: 250;
   padding: 8px 0 max(8px, env(safe-area-inset-bottom));
   justify-content: space-around;
 }
@@ -1373,6 +1375,7 @@ let recordSeconds = 0;
 let selectedCat = null;
 let recordingMode = 'capture'; // 'capture' | 'detail-body'
 let toastTimeout = null;
+let toastCountdown = null;
 
 // Map state
 let mapNodes = [];
@@ -1540,6 +1543,7 @@ async function processAudio() {
     const formData = new FormData();
     formData.append('file', blob, 'recording.webm');
     formData.append('model', 'whisper-1');
+    formData.append('language', 'en');
 
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -1886,6 +1890,51 @@ function addCardHandlers() {
   });
 }
 
+function addTlItemHandlers() {
+  document.querySelectorAll('.tl-item').forEach(item => {
+    const id = item.dataset.id;
+    item.addEventListener('click', () => openNote(id));
+
+    let startX, startY, didSwipe = false;
+    item.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      didSwipe = false;
+      item.style.transition = '';
+    }, { passive: true });
+
+    item.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (Math.abs(dx) > Math.abs(dy) && dx < 0) {
+        didSwipe = true;
+        const pct = Math.max(dx, -130);
+        const red = Math.round((Math.abs(pct) / 130) * 220);
+        item.style.transform = `translateX(${pct}px)`;
+        item.style.background = `rgb(255, ${255 - red}, ${255 - red})`;
+        item.style.borderRadius = '8px';
+      }
+    }, { passive: true });
+
+    item.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (didSwipe && dx < -80) {
+        item.style.transition = 'transform 0.18s, opacity 0.18s';
+        item.style.transform = 'translateX(-140px)';
+        item.style.opacity = '0';
+        setTimeout(() => deleteWithUndo(id), 180);
+      } else {
+        item.style.transition = 'transform 0.2s, background 0.2s';
+        item.style.transform = '';
+        item.style.background = '';
+        item.style.borderRadius = '';
+        if (didSwipe) item.addEventListener('click', e => e.stopPropagation(), { once: true });
+      }
+      didSwipe = false;
+    });
+  });
+}
+
 // ═══ NOTE DETAIL ═══
 function openNote(id) {
   activeNoteId = id;
@@ -2040,7 +2089,7 @@ function renderTimeline() {
     <div>
       <div class="tl-group-label">${day}</div>
       ${dayNotes.map(n => `
-        <div class="tl-item" onclick="openNote('${n.id}')">
+        <div class="tl-item" data-id="${n.id}">
           <div class="tl-time">${formatTime(n.createdAt)}</div>
           <div class="tl-dot bg-${n.category}" style="width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0;background:var(--${n.category});"></div>
           <div class="tl-content">
@@ -2052,6 +2101,7 @@ function renderTimeline() {
       `).join('')}
     </div>
   `).join('');
+  addTlItemHandlers();
 }
 
 function getPeriod(mode, offset) {
@@ -2407,16 +2457,28 @@ function hideProcessing() {
 function showToast(msg, undoFn, duration) {
   const t = document.getElementById('toast');
   clearTimeout(toastTimeout);
+  clearInterval(toastCountdown);
+  t.classList.remove('undoable');
+  t.onclick = null;
+
   if (undoFn) {
-    t.innerHTML = msg + ' <span class="toast-undo" onclick="(arguments[0]||event).stopPropagation()">Undo</span>';
-    t.querySelector('.toast-undo').onclick = (e) => { e.stopPropagation(); undoFn(); t.classList.remove('show'); clearTimeout(toastTimeout); };
-    t.style.cursor = 'default';
+    const secs = Math.round((duration || 5000) / 1000);
+    let remaining = secs;
+    t.innerHTML = `Undo <span class="toast-count">${remaining}s</span>`;
+    t.classList.add('undoable');
+    t.onclick = () => { undoFn(); t.classList.remove('show'); clearTimeout(toastTimeout); clearInterval(toastCountdown); };
+    toastCountdown = setInterval(() => {
+      remaining--;
+      const el = t.querySelector('.toast-count');
+      if (el) el.textContent = remaining + 's';
+      if (remaining <= 0) clearInterval(toastCountdown);
+    }, 1000);
   } else {
     t.textContent = msg;
-    t.style.cursor = 'default';
   }
+
   t.classList.add('show');
-  toastTimeout = setTimeout(() => t.classList.remove('show'), duration || 2800);
+  toastTimeout = setTimeout(() => { t.classList.remove('show'); clearInterval(toastCountdown); }, duration || 2800);
 }
 
 // Add sample notes if empty (for demo)
