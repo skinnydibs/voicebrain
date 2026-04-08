@@ -487,6 +487,7 @@ nav {
   margin-bottom: 8px;
   letter-spacing: -0.2px;
 }
+.note-title.done { text-decoration: line-through; color: var(--text3); }
 .note-preview {
   font-size: 13px;
   color: var(--text2);
@@ -755,24 +756,49 @@ nav {
 
 /* ═══════════════════════ NOTE DETAIL SCREEN ═══════════════════════ */
 #screen-detail {
-  padding: 80px 28px 60px;
-  max-width: 680px;
-  margin: 0 auto;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,25,22,0.45);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
 }
-#screen-detail.active { display: block; }
+#screen-detail.active { display: flex; }
 
-.detail-back {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text2);
-  cursor: pointer;
-  margin-bottom: 32px;
-  transition: color 0.15s;
-  width: fit-content;
+.detail-modal-content {
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding: 24px 24px 40px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
 }
-.detail-back:hover { color: var(--text); }
+
+.detail-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text2);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.detail-close:hover { background: var(--border2); color: var(--text); }
+
+@media (min-width: 641px) {
+  #screen-detail { align-items: center; padding: 20px; }
+  .detail-modal-content { border-radius: 20px; max-height: 85vh; }
+}
 
 .detail-badge-row {
   display: flex;
@@ -819,6 +845,8 @@ nav {
   border-left: 3px solid var(--border2);
 }
 
+.detail-body-wrap { position: relative; margin-bottom: 24px; }
+
 .detail-body {
   font-size: 15px;
   line-height: 1.8;
@@ -830,9 +858,36 @@ nav {
   background: transparent;
   resize: none;
   font-family: 'DM Sans', sans-serif;
-  margin-bottom: 24px;
+  padding-bottom: 28px;
 }
 .detail-body::placeholder { color: var(--text3); }
+
+.detail-body-mic {
+  position: absolute;
+  bottom: 4px; right: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text2);
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.detail-body-mic:hover { border-color: var(--border2); }
+.detail-body-mic.recording { background: #fff0f0; border-color: #c0392b; color: #c0392b; animation: rec-pulse 1.4s ease-in-out infinite; }
+
+.detail-body-processing {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text2);
+  margin-bottom: 16px;
+}
+.detail-body-processing.show { display: flex; }
 
 .detail-tags-section { margin-bottom: 24px; }
 .detail-tags { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -948,6 +1003,28 @@ nav {
   margin-top: 24px;
 }
 
+/* Floating record button */
+.fab-record {
+  position: fixed;
+  bottom: 28px; right: 24px;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(45,90,61,0.35);
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+}
+.fab-record:hover { background: #234a30; transform: scale(1.06); }
+.fab-record.recording { background: #c0392b; box-shadow: 0 4px 16px rgba(192,57,43,0.4); animation: rec-pulse 1.4s ease-in-out infinite; }
+.fab-record.hidden { display: none !important; }
+
 /* Toast */
 .toast {
   position: fixed;
@@ -968,6 +1045,7 @@ nav {
   line-height: 1.4;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
+.toast-undo { text-decoration: underline; margin-left: 10px; cursor: pointer; opacity: 0.85; }
 
 /* Search bar */
 .search-wrap {
@@ -1061,7 +1139,7 @@ nav {
   .mobile-nav { display: flex; }
   .timeline-stats { grid-template-columns: repeat(2,1fr); }
   .notes-grid { grid-template-columns: 1fr; }
-  #screen-capture, #screen-dashboard, #screen-timeline, #screen-detail {
+  #screen-capture, #screen-dashboard, #screen-timeline {
     padding-left: 16px; padding-right: 16px;
     padding-bottom: 80px;
   }
@@ -1073,6 +1151,8 @@ nav {
   .detail-title { font-size: 24px; }
   .dash-title { font-size: 22px; }
   .timeline-title { font-size: 22px; }
+  .fab-record { bottom: 76px; }
+  .detail-modal-content { padding: 20px 16px 36px; }
 }
 </style>
 </head>
@@ -1119,7 +1199,7 @@ nav {
     <textarea class="text-input" id="text-input" placeholder="Anything — a task, a thought, a quote, a reminder..." rows="4"></textarea>
     <div class="text-capture-footer">
       <div class="category-pills">
-        <div class="cat-pill" data-cat="todo" onclick="selectCat(this)">Todo</div>
+        <div class="cat-pill" data-cat="todo" onclick="selectCat(this)">To-do</div>
         <div class="cat-pill" data-cat="reminder" onclick="selectCat(this)">Reminder</div>
         <div class="cat-pill" data-cat="inspiration" onclick="selectCat(this)">Idea</div>
         <div class="cat-pill" data-cat="book" onclick="selectCat(this)">Book</div>
@@ -1155,7 +1235,7 @@ nav {
   </div>
   <div class="filter-bar">
     <button class="filter-btn active" data-filter="all" onclick="filterNotes(this)">All</button>
-    <button class="filter-btn" data-filter="todo" onclick="filterNotes(this)">Todos</button>
+    <button class="filter-btn" data-filter="todo" onclick="filterNotes(this)">To-dos</button>
     <button class="filter-btn" data-filter="reminder" onclick="filterNotes(this)">Reminders</button>
     <button class="filter-btn" data-filter="inspiration" onclick="filterNotes(this)">Ideas</button>
     <button class="filter-btn" data-filter="book" onclick="filterNotes(this)">Books</button>
@@ -1180,7 +1260,7 @@ nav {
   </div>
   <div class="filter-bar" id="tl-filter-bar">
     <button class="filter-btn active" data-filter="all" onclick="filterTimeline(this)">All</button>
-    <button class="filter-btn" data-filter="todo" onclick="filterTimeline(this)">Todos</button>
+    <button class="filter-btn" data-filter="todo" onclick="filterTimeline(this)">To-dos</button>
     <button class="filter-btn" data-filter="reminder" onclick="filterTimeline(this)">Reminders</button>
     <button class="filter-btn" data-filter="inspiration" onclick="filterTimeline(this)">Ideas</button>
     <button class="filter-btn" data-filter="book" onclick="filterTimeline(this)">Books</button>
@@ -1202,32 +1282,39 @@ nav {
   <div class="mm-node-tooltip" id="mm-tooltip"></div>
 </div>
 
-<!-- NOTE DETAIL SCREEN -->
-<div id="screen-detail" class="screen">
-  <div class="detail-back" onclick="goBack()">← Back</div>
-  <div class="detail-badge-row">
-    <span class="note-badge" id="detail-badge">—</span>
-    <span class="detail-date" id="detail-date">—</span>
-  </div>
-  <textarea class="detail-title" id="detail-title" rows="2"></textarea>
-  <div id="detail-transcript-wrap">
-    <div class="detail-section-label">Original transcript</div>
-    <div class="detail-transcript" id="detail-transcript"></div>
-  </div>
-  <div class="detail-section-label">Notes</div>
-  <textarea class="detail-body" id="detail-body" placeholder="Add more details, reflections, or context..."></textarea>
-  <div class="detail-tags-section">
-    <div class="detail-section-label">Tags</div>
-    <div class="detail-tags" id="detail-tags"></div>
-  </div>
-  <div class="detail-links" id="detail-links-wrap">
-    <div class="detail-section-label">Linked notes</div>
-    <div id="detail-links"></div>
-  </div>
-  <div class="detail-actions">
-    <button class="btn-save" onclick="saveDetail()">Save changes</button>
-    <button class="btn-outline" onclick="goBack()">Cancel</button>
-    <button class="btn-delete" onclick="deleteNote()">Delete</button>
+<!-- NOTE DETAIL SCREEN (modal overlay) -->
+<div id="screen-detail" class="screen" onclick="goBack()">
+  <div class="detail-modal-content" onclick="event.stopPropagation()">
+    <button class="detail-close" onclick="goBack()">✕</button>
+    <div class="detail-badge-row">
+      <span class="note-badge" id="detail-badge">—</span>
+      <span class="detail-date" id="detail-date">—</span>
+    </div>
+    <textarea class="detail-title" id="detail-title" rows="2"></textarea>
+    <div id="detail-transcript-wrap">
+      <div class="detail-section-label">Original transcript</div>
+      <div class="detail-transcript" id="detail-transcript"></div>
+    </div>
+    <div class="detail-section-label">Notes</div>
+    <div class="detail-body-wrap">
+      <textarea class="detail-body" id="detail-body" placeholder="Add more details, reflections, or context..."></textarea>
+      <button class="detail-body-mic" id="detail-body-mic" onclick="detailBodyMicToggle()">🎙 Record</button>
+    </div>
+    <div class="detail-body-processing" id="detail-body-processing">
+      <div class="spinner"></div><span>Cleaning up your note...</span>
+    </div>
+    <div class="detail-tags-section">
+      <div class="detail-section-label">Tags</div>
+      <div class="detail-tags" id="detail-tags"></div>
+    </div>
+    <div class="detail-links" id="detail-links-wrap">
+      <div class="detail-section-label">Linked notes</div>
+      <div id="detail-links"></div>
+    </div>
+    <div class="detail-actions">
+      <button class="btn-save" onclick="saveDetail()">Save changes</button>
+      <button class="btn-delete" onclick="deleteNote()">Delete</button>
+    </div>
   </div>
 </div>
 
@@ -1249,6 +1336,7 @@ nav {
 </div>
 
 <div class="toast" id="toast"></div>
+<button class="fab-record hidden" id="fab-record" onclick="fabToggleRecording()">🎙</button>
 
 <!-- Mobile bottom nav -->
 <div class="mobile-nav" id="mobile-nav">
@@ -1283,6 +1371,8 @@ let isRecording = false;
 let recordTimer = null;
 let recordSeconds = 0;
 let selectedCat = null;
+let recordingMode = 'capture'; // 'capture' | 'detail-body'
+let toastTimeout = null;
 
 // Map state
 let mapNodes = [];
@@ -1312,19 +1402,32 @@ window.onload = () => {
 
 // ═══ NAVIGATION ═══
 function showScreen(name) {
-  if (name !== 'detail') previousScreen = name;
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const fab = document.getElementById('fab-record');
+  if (name === 'detail') {
+    document.getElementById('screen-detail').classList.add('active');
+    if (fab) fab.classList.add('hidden');
+    return;
+  }
+  // Close detail modal if switching screens
+  document.getElementById('screen-detail').classList.remove('active');
+  previousScreen = name;
+  document.querySelectorAll('.screen:not(#screen-detail)').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.screen === name);
   });
   const el = document.getElementById('screen-' + name);
   if (el) el.classList.add('active');
+  if (fab) fab.classList.toggle('hidden', name === 'capture');
   if (name === 'dashboard') renderDashboard();
   if (name === 'timeline') renderTimeline();
   if (name === 'mindmap') { setTimeout(initMindMap, 100); }
 }
 
-function goBack() { showScreen(previousScreen); }
+function goBack() {
+  document.getElementById('screen-detail').classList.remove('active');
+  const fab = document.getElementById('fab-record');
+  if (fab) fab.classList.toggle('hidden', previousScreen === 'capture');
+}
 
 function setMobNav(btn) {
   document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
@@ -1352,56 +1455,82 @@ function updateApiStatus() {
 }
 
 // ═══ RECORDING ═══
-async function startRecording(e) {
-  if (e) e.preventDefault();
-  if (isRecording) return;
-
-  if (!settings.openaiKey) {
-    openSettings();
-    showToast('Please add your OpenAI key first');
-    return;
+function updateRecordingUI(recording) {
+  const btn = document.getElementById('record-btn');
+  const label = document.getElementById('record-label');
+  const timer = document.getElementById('record-timer');
+  const waveform = document.getElementById('waveform');
+  if (btn) { btn.classList.toggle('recording', recording); btn.textContent = recording ? '■' : '●'; }
+  if (label) label.textContent = recording ? 'Recording — release to stop' : 'Hold to record';
+  if (timer && !recording) timer.textContent = '';
+  if (waveform) waveform.classList.toggle('active', recording);
+  const fab = document.getElementById('fab-record');
+  if (fab) fab.classList.toggle('recording', recording);
+  const detailMic = document.getElementById('detail-body-mic');
+  if (detailMic) {
+    detailMic.classList.toggle('recording', recordingMode === 'detail-body' && recording);
+    detailMic.textContent = (recordingMode === 'detail-body' && recording) ? '■ Stop' : '🎙 Record';
   }
+}
 
+async function beginRecording(mode) {
+  if (isRecording) return;
+  if (!settings.openaiKey) { openSettings(); showToast('Please add your OpenAI key first'); return; }
+  recordingMode = mode || 'capture';
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
-
     mediaRecorder.ondataavailable = ev => { if (ev.data.size > 0) audioChunks.push(ev.data); };
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      if (audioChunks.length) await processAudio();
+      if (audioChunks.length) {
+        if (recordingMode === 'detail-body') await processBodyAudio();
+        else await processAudio();
+      }
     };
-
     mediaRecorder.start();
     isRecording = true;
     recordSeconds = 0;
-    document.getElementById('record-btn').classList.add('recording');
-    document.getElementById('record-btn').textContent = '■';
-    document.getElementById('record-label').textContent = 'Recording — release to stop';
-    document.getElementById('waveform').classList.add('active');
+    updateRecordingUI(true);
     recordTimer = setInterval(() => {
       recordSeconds++;
       const m = String(Math.floor(recordSeconds/60)).padStart(2,'0');
       const s = String(recordSeconds%60).padStart(2,'0');
-      document.getElementById('record-timer').textContent = m + ':' + s;
+      const timerEl = document.getElementById('record-timer');
+      if (timerEl) timerEl.textContent = m + ':' + s;
     }, 1000);
   } catch(e) {
     showToast('Microphone access denied');
   }
 }
 
-function stopRecording() {
+function endRecording() {
   if (mediaRecorder && isRecording) {
     mediaRecorder.stop();
     isRecording = false;
     clearInterval(recordTimer);
-    document.getElementById('record-btn').classList.remove('recording');
-    document.getElementById('record-btn').textContent = '●';
-    document.getElementById('record-label').textContent = 'Hold to record';
-    document.getElementById('record-timer').textContent = '';
-    document.getElementById('waveform').classList.remove('active');
+    updateRecordingUI(false);
   }
+}
+
+// Main capture button (hold to record)
+async function startRecording(e) {
+  if (e) e.preventDefault();
+  await beginRecording('capture');
+}
+function stopRecording() { endRecording(); }
+
+// FAB (tap to toggle)
+function fabToggleRecording() {
+  if (isRecording) endRecording();
+  else beginRecording('capture');
+}
+
+// Detail body mic (tap to toggle)
+function detailBodyMicToggle() {
+  if (isRecording && recordingMode === 'detail-body') endRecording();
+  else if (!isRecording) beginRecording('detail-body');
 }
 
 async function processAudio() {
@@ -1426,6 +1555,48 @@ async function processAudio() {
   } catch(e) {
     hideProcessing();
     showToast('Error: ' + e.message);
+  }
+}
+
+async function processBodyAudio() {
+  const processingEl = document.getElementById('detail-body-processing');
+  if (processingEl) processingEl.classList.add('show');
+  try {
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append('file', blob, 'recording.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'en');
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + settings.openaiKey },
+      body: formData
+    });
+    const data = await res.json();
+    if (!data.text) throw new Error(data.error?.message || 'Transcription failed');
+
+    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openaiKey },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: `Clean up this voice note into clear, coherent prose. Remove filler words, false starts, and repetition. Preserve the speaker's meaning and tone. Return only the cleaned text, nothing else.\n\n"${data.text.replace(/"/g, "'")}"` }]
+      })
+    });
+    const aiData = await aiRes.json();
+    if (aiData.error) throw new Error(aiData.error.message);
+    const cleaned = aiData.choices[0].message.content.trim();
+
+    const bodyEl = document.getElementById('detail-body');
+    if (bodyEl) {
+      const existing = bodyEl.value.trim();
+      bodyEl.value = existing ? existing + '\n\n' + cleaned : cleaned;
+    }
+  } catch(e) {
+    showToast('Voice error: ' + e.message);
+  } finally {
+    if (processingEl) processingEl.classList.remove('show');
   }
 }
 
@@ -1640,27 +1811,79 @@ function renderDashboard() {
   }
 
   grid.innerHTML = filtered.map(n => `
-    <div class="note-card" data-cat="${n.category}" onclick="openNote('${n.id}')">
+    <div class="note-card" data-cat="${n.category}" data-id="${n.id}">
       <div class="note-card-top">
         <span class="note-badge">${catLabel(n.category)}</span>
         <span class="note-date">${formatDate(n.createdAt)}</span>
       </div>
-      <div class="note-title">${n.title}</div>
+      <div class="note-title${n.done ? ' done' : ''}">${n.title}</div>
       <div class="note-preview">${n.summary || n.text}</div>
       ${n.tags.length ? `<div class="note-tags">${n.tags.map(t=>`<span class="tag">#${t}</span>`).join('')}</div>` : ''}
       <div class="note-card-footer">
         <span class="note-source">${n.source === 'voice' ? 'Voice' : 'Text'}</span>
-        ${n.category === 'todo' ? `<div class="note-todo-check ${n.done?'done':''}" onclick="toggleDone(event,'${n.id}')">${n.done?'✓':''}</div>` : ''}
+        ${n.category === 'todo' ? `<div class="note-todo-check ${n.done?'done':''}" data-toggle="${n.id}">${n.done?'✓':''}</div>` : ''}
         ${n.reminderTime ? `<span style="font-size:11px;color:var(--reminder)">${formatDateTime(n.reminderTime)}</span>` : ''}
       </div>
     </div>
   `).join('');
+  addCardHandlers();
 }
 
-function toggleDone(event, id) {
-  event.stopPropagation();
+function toggleDone(id) {
   const note = notes.find(n => n.id === id);
   if (note) { note.done = !note.done; saveNotes(); renderDashboard(); }
+}
+
+function addCardHandlers() {
+  document.querySelectorAll('.note-card').forEach(card => {
+    const id = card.dataset.id;
+
+    // Click to open note
+    card.addEventListener('click', () => openNote(id));
+
+    // Todo checkbox toggle
+    const toggle = card.querySelector('[data-toggle]');
+    if (toggle) {
+      toggle.addEventListener('click', e => { e.stopPropagation(); toggleDone(id); });
+    }
+
+    // Swipe right to delete
+    let startX, startY, didSwipe = false;
+    card.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      didSwipe = false;
+      card.style.transition = '';
+    }, { passive: true });
+
+    card.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (Math.abs(dx) > Math.abs(dy) && dx > 0) {
+        didSwipe = true;
+        const pct = Math.min(dx, 130);
+        const red = Math.round((pct / 130) * 220);
+        card.style.transform = `translateX(${pct}px)`;
+        card.style.background = `rgb(255, ${255 - red}, ${255 - red})`;
+      }
+    }, { passive: true });
+
+    card.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (didSwipe && dx > 80) {
+        card.style.transition = 'transform 0.18s, opacity 0.18s';
+        card.style.transform = 'translateX(140px)';
+        card.style.opacity = '0';
+        setTimeout(() => deleteWithUndo(id), 180);
+      } else {
+        card.style.transition = 'transform 0.2s, background 0.2s';
+        card.style.transform = '';
+        card.style.background = '';
+        if (didSwipe) card.addEventListener('click', e => e.stopPropagation(), { once: true });
+      }
+      didSwipe = false;
+    });
+  });
 }
 
 // ═══ NOTE DETAIL ═══
@@ -1721,13 +1944,36 @@ function saveDetail() {
 }
 
 function deleteNote() {
-  if (!confirm('Delete this note?')) return;
-  notes = notes.filter(n => n.id !== activeNoteId);
+  const idx = notes.findIndex(n => n.id === activeNoteId);
+  if (idx === -1) return;
+  const backup = { ...notes[idx] };
+  notes.splice(idx, 1);
   saveNotes();
   renderDashboard();
   renderRecent();
   goBack();
-  showToast('Note deleted');
+  showToast('Deleted', () => {
+    notes.splice(idx, 0, backup);
+    saveNotes();
+    renderDashboard();
+    renderRecent();
+  }, 4000);
+}
+
+function deleteWithUndo(id) {
+  const idx = notes.findIndex(n => n.id === id);
+  if (idx === -1) return;
+  const backup = { ...notes[idx] };
+  notes.splice(idx, 1);
+  saveNotes();
+  renderDashboard();
+  renderRecent();
+  showToast('Deleted', () => {
+    notes.splice(idx, 0, backup);
+    saveNotes();
+    renderDashboard();
+    renderRecent();
+  }, 4000);
 }
 
 // ═══ TIMELINE ═══
@@ -1762,7 +2008,7 @@ function renderTimeline() {
 
   // Stats always show all categories regardless of filter
   const cats = ['todo','reminder','inspiration','book'];
-  const catNames = { todo:'Todos', reminder:'Reminders', inspiration:'Ideas', book:'Books' };
+  const catNames = { todo:'To-dos', reminder:'Reminders', inspiration:'Ideas', book:'Books' };
   document.getElementById('tl-stats').innerHTML = cats.map(c => {
     const count = periodNotes.filter(n => n.category === c).length;
     return `<div class="stat-box">
@@ -2122,7 +2368,7 @@ function setupMapEvents(canvas) {
 
 // ═══ HELPERS ═══
 function catLabel(cat) {
-  const labels = { todo:'Todo', reminder:'Reminder', inspiration:'Idea', book:'Book', general:'Note' };
+  const labels = { todo:'To-do', reminder:'Reminder', inspiration:'Idea', book:'Book', general:'Note' };
   return labels[cat] || 'Note';
 }
 
@@ -2158,11 +2404,19 @@ function hideProcessing() {
   document.getElementById('processing').classList.remove('show');
 }
 
-function showToast(msg) {
+function showToast(msg, undoFn, duration) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  clearTimeout(toastTimeout);
+  if (undoFn) {
+    t.innerHTML = msg + ' <span class="toast-undo" onclick="(arguments[0]||event).stopPropagation()">Undo</span>';
+    t.querySelector('.toast-undo').onclick = (e) => { e.stopPropagation(); undoFn(); t.classList.remove('show'); clearTimeout(toastTimeout); };
+    t.style.cursor = 'default';
+  } else {
+    t.textContent = msg;
+    t.style.cursor = 'default';
+  }
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
+  toastTimeout = setTimeout(() => t.classList.remove('show'), duration || 2800);
 }
 
 // Add sample notes if empty (for demo)
