@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>VoiceBrain</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1060,6 +1060,7 @@ nav {
   position: fixed;
   bottom: 28px; right: 24px;
   width: 56px; height: 56px;
+  cursor: grab;
   border-radius: 50%;
   background: var(--accent);
   color: white;
@@ -1168,7 +1169,7 @@ nav {
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
   z-index: 250;
-  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  padding: 8px 0 max(16px, env(safe-area-inset-bottom));
   justify-content: space-around;
 }
 .mob-nav-btn {
@@ -1209,7 +1210,8 @@ nav {
   .timeline-title { font-size: 22px; }
   .fab-record { bottom: 76px; }
   .note-card-delete { opacity: 0.5; }
-  .detail-modal-content { padding: 20px 16px 100px; }
+  #screen-detail { padding: 0 16px max(16px, env(safe-area-inset-bottom)); align-items: flex-end; }
+  .detail-modal-content { padding: 20px 16px 80px; border-radius: 20px; }
 }
 
 /* ═══ LOGIN SCREEN ═══ */
@@ -1401,7 +1403,6 @@ nav {
 <!-- NOTE DETAIL SCREEN (modal overlay) -->
 <div id="screen-detail" class="screen" onclick="goBack()">
   <div class="detail-modal-content" onclick="event.stopPropagation()">
-    <button class="detail-close" onclick="goBack()">✕</button>
     <div class="detail-badge-row">
       <span class="note-badge" id="detail-badge">—</span>
       <span class="detail-date" id="detail-date">—</span>
@@ -1489,7 +1490,7 @@ nav {
   <span id="processing-msg">Processing your note with AI...</span>
 </div>
 <div class="toast" id="toast"></div>
-<button class="fab-record hidden" id="fab-record" onclick="fabToggleRecording()">🎙</button>
+<button class="fab-record hidden" id="fab-record">🎙</button>
 
 <!-- Mobile bottom nav -->
 <div class="mobile-nav" id="mobile-nav">
@@ -1862,6 +1863,110 @@ function fabToggleRecording() {
   if (isRecording) endRecording();
   else beginRecording('capture');
 }
+
+// ═══ FAB DRAG ═══
+(function initFabDrag() {
+  const fab = document.getElementById('fab-record');
+  if (!fab) return;
+
+  // Restore saved position
+  const saved = JSON.parse(localStorage.getItem('fabPos') || 'null');
+  if (saved) {
+    fab.style.left = saved.left + 'px';
+    fab.style.top = saved.top + 'px';
+    fab.style.bottom = 'auto';
+    fab.style.right = 'auto';
+  }
+
+  let isDragging = false;
+  let startX, startY, startLeft, startTop;
+  const DRAG_THRESHOLD = 5;
+  const NAV_HEIGHT = 80;
+  const FAB_SIZE = 56;
+
+  function clamp(fab, left, top) {
+    const maxLeft = window.innerWidth - FAB_SIZE - 8;
+    const maxTop = window.innerHeight - NAV_HEIGHT - FAB_SIZE - 8;
+    return {
+      left: Math.min(Math.max(left, 8), maxLeft),
+      top: Math.min(Math.max(top, 8), maxTop)
+    };
+  }
+
+  function getLeft() {
+    return fab.style.left ? parseInt(fab.style.left) : window.innerWidth - FAB_SIZE - 24;
+  }
+  function getTop() {
+    return fab.style.top ? parseInt(fab.style.top) : window.innerHeight - FAB_SIZE - (saved ? 0 : 100);
+  }
+
+  // Touch
+  fab.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+    startLeft = getLeft(); startTop = getTop();
+    isDragging = false;
+    fab.style.cursor = 'grabbing';
+  }, { passive: true });
+
+  fab.addEventListener('touchmove', e => {
+    const t = e.touches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY;
+    if (!isDragging && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) isDragging = true;
+    if (isDragging) {
+      e.preventDefault();
+      const pos = clamp(fab, startLeft + dx, startTop + dy);
+      fab.style.left = pos.left + 'px';
+      fab.style.top = pos.top + 'px';
+      fab.style.bottom = 'auto';
+      fab.style.right = 'auto';
+    }
+  }, { passive: false });
+
+  fab.addEventListener('touchend', () => {
+    fab.style.cursor = 'grab';
+    if (isDragging) {
+      localStorage.setItem('fabPos', JSON.stringify({ left: parseInt(fab.style.left), top: parseInt(fab.style.top) }));
+    } else {
+      fabToggleRecording();
+    }
+    isDragging = false;
+  });
+
+  // Mouse (desktop)
+  fab.addEventListener('mousedown', e => {
+    startX = e.clientX; startY = e.clientY;
+    startLeft = getLeft(); startTop = getTop();
+    isDragging = false;
+    fab.style.cursor = 'grabbing';
+
+    function onMove(e) {
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if (!isDragging && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) isDragging = true;
+      if (isDragging) {
+        const pos = clamp(fab, startLeft + dx, startTop + dy);
+        fab.style.left = pos.left + 'px';
+        fab.style.top = pos.top + 'px';
+        fab.style.bottom = 'auto';
+        fab.style.right = 'auto';
+      }
+    }
+    function onUp() {
+      fab.style.cursor = 'grab';
+      if (isDragging) {
+        localStorage.setItem('fabPos', JSON.stringify({ left: parseInt(fab.style.left), top: parseInt(fab.style.top) }));
+      } else {
+        fabToggleRecording();
+      }
+      isDragging = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  });
+})();
 
 // Detail body mic (tap to toggle)
 function detailBodyMicToggle() {
