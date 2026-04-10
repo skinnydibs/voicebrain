@@ -456,6 +456,25 @@ nav {
 .note-card[data-cat="book"]::before { background: var(--book); }
 .note-card[data-cat="general"]::before { background: var(--general); }
 
+.note-card-delete {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 2;
+}
+.note-card:hover .note-card-delete { opacity: 1; }
+.note-card-delete:hover { background: #fee2e2; color: #c0392b; }
+
 .note-card:hover {
   border-color: var(--border2);
   box-shadow: var(--shadow-lg);
@@ -1161,7 +1180,7 @@ nav {
   .dash-title { font-size: 22px; }
   .timeline-title { font-size: 22px; }
   .fab-record { bottom: 76px; }
-  .detail-modal-content { padding: 20px 16px 36px; }
+  .detail-modal-content { padding: 20px 16px 100px; }
 }
 </style>
 </head>
@@ -1824,6 +1843,7 @@ function renderDashboard() {
 
   grid.innerHTML = filtered.map(n => `
     <div class="note-card" data-cat="${n.category}" data-id="${n.id}">
+      <button class="note-card-delete" data-delete="${n.id}" title="Delete">✕</button>
       <div class="note-card-top">
         <span class="note-badge">${catLabel(n.category)}</span>
         <span class="note-date">${formatDate(n.createdAt)}</span>
@@ -1852,6 +1872,12 @@ function addCardHandlers() {
 
     // Click to open note
     card.addEventListener('click', () => openNote(id));
+
+    // × delete button
+    const delBtn = card.querySelector('[data-delete]');
+    if (delBtn) {
+      delBtn.addEventListener('click', e => { e.stopPropagation(); deleteWithUndo(id); });
+    }
 
     // Todo checkbox toggle
     const toggle = card.querySelector('[data-toggle]');
