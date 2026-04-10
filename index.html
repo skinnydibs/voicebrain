@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VoiceBrain</title>
 <link rel="apple-touch-icon" href="icon-180.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -1209,6 +1210,70 @@ nav {
   .note-card-delete { opacity: 0.5; }
   .detail-modal-content { padding: 20px 16px 100px; }
 }
+
+/* ═══ LOGIN SCREEN ═══ */
+#login-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#login-screen.hidden { display: none; }
+.login-box { width: 100%; max-width: 380px; }
+.login-logo {
+  font-family: 'Fraunces', serif;
+  font-size: 34px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.login-tagline { font-size: 14px; color: var(--text2); margin-bottom: 36px; }
+.login-field { margin-bottom: 14px; }
+.login-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text2);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.login-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.login-input:focus { border-color: var(--accent); }
+.login-error { font-size: 13px; color: #c0392b; margin-bottom: 12px; min-height: 18px; }
+.btn-login {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 14px;
+}
+.btn-login:hover { background: #234a30; }
+.btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+.login-toggle { text-align: center; font-size: 13px; color: var(--text2); }
+.login-toggle a { color: var(--accent); cursor: pointer; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -1371,17 +1436,47 @@ nav {
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settings-modal">
   <div class="modal">
-    <div class="modal-title">API Key</div>
-    <div class="modal-sub">One OpenAI key powers everything — voice transcription and AI organisation</div>
+    <div class="modal-title">Settings</div>
+    <div class="modal-sub">Keys are stored locally on this device</div>
     <div class="modal-field">
       <div class="modal-label">OpenAI API Key</div>
       <input class="modal-input" type="password" id="openai-key" placeholder="sk-...">
-      <div class="modal-hint">Get yours at platform.openai.com → API Keys. Add $5 credit to get started.</div>
+      <div class="modal-hint">platform.openai.com → API Keys</div>
     </div>
-    <div class="modal-actions">
+    <div class="modal-field" style="margin-top:16px">
+      <div class="modal-label">Supabase Project URL</div>
+      <input class="modal-input" type="text" id="supabase-url" placeholder="https://xxxx.supabase.co">
+    </div>
+    <div class="modal-field" style="margin-top:12px">
+      <div class="modal-label">Supabase Anon Key</div>
+      <input class="modal-input" type="password" id="supabase-anon-key" placeholder="eyJ...">
+    </div>
+    <div class="modal-actions" style="margin-top:20px">
       <button class="btn-outline" onclick="closeSettings()">Cancel</button>
-      <button class="btn-save" onclick="saveSettings()">Save key</button>
+      <button class="btn-save" onclick="saveSettings()">Save</button>
     </div>
+    <div id="logout-wrap" style="margin-top:14px;display:none">
+      <button class="btn-outline" onclick="doLogout()" style="width:100%;color:#c0392b;border-color:#fecaca">Log out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">VoiceBrain</div>
+    <div class="login-tagline">Your personal second brain</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input class="login-input" type="email" id="login-email" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input class="login-input" type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <button class="btn-login" id="login-btn" onclick="doLogin()">Log in</button>
+    <div class="login-toggle" id="login-toggle">No account? <a onclick="toggleAuthMode()">Create one</a></div>
   </div>
 </div>
 
@@ -1410,8 +1505,11 @@ nav {
 
 <script>
 // ═══ STATE ═══
-let notes = JSON.parse(localStorage.getItem('vb_notes') || '[]');
+let notes = [];
 let settings = JSON.parse(localStorage.getItem('vb_settings') || '{}');
+let supabaseClient = null;
+let currentUser = null;
+let authMode = 'login';
 let currentFilter = 'all';
 let searchQuery = '';
 let tlMode = 'day';
@@ -1439,19 +1537,25 @@ let hoveredNode = null;
 let animFrame = null;
 
 // ═══ INIT ═══
-window.onload = () => {
+window.onload = async () => {
   loadKeys();
-  renderRecent();
-  renderDashboard();
-  renderTimeline();
   requestNotifPermission();
-
-  // Reminder checker
   setInterval(checkReminders, 60000);
 
-  // Auto-open settings if no keys
-  if (!settings.openaiKey) {
-    setTimeout(openSettings, 600);
+  if (!settings.supabaseUrl || !settings.supabaseKey) {
+    // No Supabase credentials yet — show settings to prompt setup
+    setTimeout(openSettings, 400);
+    return;
+  }
+
+  initSupabase();
+  const session = await getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadNotes();
+    showApp();
+  } else {
+    showLoginScreen();
   }
 };
 
@@ -1494,19 +1598,192 @@ function openSettings() { document.getElementById('settings-modal').classList.ad
 function closeSettings() { document.getElementById('settings-modal').classList.remove('show'); }
 function loadKeys() {
   if (settings.openaiKey) document.getElementById('openai-key').value = settings.openaiKey;
+  if (settings.supabaseUrl) document.getElementById('supabase-url').value = settings.supabaseUrl;
+  if (settings.supabaseKey) document.getElementById('supabase-anon-key').value = settings.supabaseKey;
   updateApiStatus();
 }
 function saveSettings() {
   settings.openaiKey = document.getElementById('openai-key').value.trim();
+  settings.supabaseUrl = document.getElementById('supabase-url').value.trim();
+  settings.supabaseKey = document.getElementById('supabase-anon-key').value.trim();
   localStorage.setItem('vb_settings', JSON.stringify(settings));
   updateApiStatus();
   closeSettings();
-  showToast('API key saved');
+  showToast('Settings saved');
+  // Re-init Supabase with new credentials and check session
+  if (settings.supabaseUrl && settings.supabaseKey) {
+    initSupabase();
+    getSession().then(session => {
+      if (session) { currentUser = session.user; loadNotes().then(showApp); }
+      else showLoginScreen();
+    });
+  }
 }
 function updateApiStatus() {
   const ok = !!settings.openaiKey;
   document.getElementById('api-dot').className = 'api-dot' + (ok ? ' ok' : '');
   document.getElementById('api-label').textContent = ok ? 'Key active' : 'Add API Key';
+}
+
+// ═══ SUPABASE ═══
+function initSupabase() {
+  supabaseClient = window.supabase.createClient(settings.supabaseUrl, settings.supabaseKey);
+}
+
+async function getSession() {
+  if (!supabaseClient) return null;
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return session;
+  } catch(e) { return null; }
+}
+
+function showApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('logout-wrap').style.display = 'block';
+  renderRecent();
+  renderDashboard();
+  renderTimeline();
+  if (!settings.openaiKey) setTimeout(openSettings, 600);
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+async function doLogin() {
+  if (!supabaseClient) { showToast('Add Supabase credentials in Settings first'); openSettings(); return; }
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  if (!email || !password) { errEl.textContent = 'Please enter email and password'; return; }
+  btn.disabled = true;
+  btn.textContent = authMode === 'login' ? 'Logging in...' : 'Creating account...';
+  errEl.textContent = '';
+  try {
+    let result;
+    if (authMode === 'login') {
+      result = await supabaseClient.auth.signInWithPassword({ email, password });
+    } else {
+      result = await supabaseClient.auth.signUp({ email, password });
+    }
+    if (result.error) throw result.error;
+    if (authMode === 'signup' && !result.data.session) {
+      errEl.style.color = 'var(--accent)';
+      errEl.textContent = 'Check your email to confirm your account, then log in.';
+      btn.disabled = false;
+      btn.textContent = 'Create account';
+      return;
+    }
+    currentUser = result.data.session.user;
+    await loadNotes();
+    showApp();
+  } catch(e) {
+    errEl.textContent = e.message || 'Something went wrong';
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? 'Log in' : 'Create account';
+  }
+}
+
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'signup' : 'login';
+  document.getElementById('login-btn').textContent = authMode === 'login' ? 'Log in' : 'Create account';
+  document.getElementById('login-toggle').innerHTML = authMode === 'login'
+    ? 'No account? <a onclick="toggleAuthMode()">Create one</a>'
+    : 'Already have an account? <a onclick="toggleAuthMode()">Log in</a>';
+  document.getElementById('login-error').textContent = '';
+}
+
+async function doLogout() {
+  if (supabaseClient) await supabaseClient.auth.signOut();
+  currentUser = null;
+  notes = [];
+  closeSettings();
+  document.getElementById('logout-wrap').style.display = 'none';
+  showLoginScreen();
+}
+
+// Note shape converters
+function dbToNote(row) {
+  return {
+    id: row.id,
+    text: row.raw_transcript || '',
+    body: row.clean_text || '',
+    title: row.title || '',
+    summary: row.summary || '',
+    category: row.category || 'general',
+    tags: row.tags || [],
+    linkedThemes: row.linked_themes || [],
+    reminderTime: row.reminder_time || null,
+    source: row.source || 'text',
+    tone: row.tone || null,
+    done: row.is_done || false,
+    createdAt: row.created_at
+  };
+}
+
+function noteToDb(note) {
+  return {
+    id: note.id,
+    user_id: currentUser.id,
+    raw_transcript: note.text || '',
+    clean_text: note.body || '',
+    title: note.title || '',
+    summary: note.summary || '',
+    category: note.category || 'general',
+    tags: note.tags || [],
+    linked_themes: note.linkedThemes || [],
+    reminder_time: note.reminderTime || null,
+    source: note.source || 'text',
+    tone: note.tone || null,
+    duration_seconds: note.duration_seconds || null,
+    is_done: note.done || false
+  };
+}
+
+async function loadNotes() {
+  if (!supabaseClient || !currentUser) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('notes').select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    notes = (data || []).map(dbToNote);
+  } catch(e) {
+    showToast('Error loading notes: ' + e.message);
+  }
+}
+
+async function persistNote(note) {
+  if (!supabaseClient || !currentUser) return;
+  try {
+    const { error } = await supabaseClient.from('notes').insert(noteToDb(note));
+    if (error) throw error;
+  } catch(e) {
+    showToast('Error saving: ' + e.message);
+  }
+}
+
+async function updateNoteInDb(id, fields) {
+  if (!supabaseClient || !currentUser) return;
+  try {
+    const { error } = await supabaseClient.from('notes').update(fields).eq('id', id).eq('user_id', currentUser.id);
+    if (error) throw error;
+  } catch(e) {
+    showToast('Error updating: ' + e.message);
+  }
+}
+
+async function deleteNoteFromDb(id) {
+  if (!supabaseClient || !currentUser) return;
+  try {
+    const { error } = await supabaseClient.from('notes').delete().eq('id', id).eq('user_id', currentUser.id);
+    if (error) throw error;
+  } catch(e) {
+    showToast('Error deleting: ' + e.message);
+  }
 }
 
 // ═══ RECORDING ═══
@@ -1689,6 +1966,7 @@ async function organiseAndSave(text, source) {
 - tags: array of 2-4 lowercase topic tags
 - reminderTime: ISO datetime string if the note mentions a specific time/date for a reminder, otherwise null
 - linkedThemes: array of 2-3 abstract themes that could connect to other notes (e.g. "productivity", "health", "creativity")
+- tone: one of "excited", "anxious", "flat", "stressed", "reflective", "neutral" — the emotional tone of the note
 
 Note: "${text.replace(/"/g, "'")}"
 
@@ -1719,7 +1997,8 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
       summary: text,
       tags: [],
       reminderTime: null,
-      linkedThemes: []
+      linkedThemes: [],
+      tone: 'neutral'
     };
     const msg = e.message || '';
     if (msg.includes('quota') || msg.includes('billing') || msg.includes('credit')) {
@@ -1732,7 +2011,7 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
   }
 
   const note = {
-    id: Date.now().toString(),
+    id: crypto.randomUUID(),
     text,
     source,
     category: selectedCat || organised.category,
@@ -1740,15 +2019,16 @@ Respond with ONLY the JSON, no markdown, no explanation.`;
     summary: organised.summary,
     tags: organised.tags || [],
     linkedThemes: organised.linkedThemes || [],
-    reminderTime: organised.reminderTime,
+    reminderTime: organised.reminderTime || null,
+    tone: organised.tone || 'neutral',
     body: '',
     done: false,
     createdAt: new Date().toISOString()
   };
 
   notes.unshift(note);
-  saveNotes();
   hideProcessing();
+  await persistNote(note);
   renderRecent();
   renderDashboard();
   renderTimeline();
@@ -1796,7 +2076,7 @@ function requestNotifPermission() {
 
 // ═══ STORAGE ═══
 function saveNotes() {
-  localStorage.setItem('vb_notes', JSON.stringify(notes));
+  // no-op — Supabase is source of truth
   requestNotifPermission();
 }
 
@@ -1895,9 +2175,12 @@ function renderDashboard() {
   addCardHandlers();
 }
 
-function toggleDone(id) {
+async function toggleDone(id) {
   const note = notes.find(n => n.id === id);
-  if (note) { note.done = !note.done; saveNotes(); renderDashboard(); }
+  if (!note) return;
+  note.done = !note.done;
+  renderDashboard();
+  await updateNoteInDb(id, { is_done: note.done });
 }
 
 function addCardHandlers() {
@@ -2061,43 +2344,43 @@ function openNote(id) {
   showScreen('detail');
 }
 
-function saveDetail() {
+async function saveDetail() {
   const note = notes.find(n => n.id === activeNoteId);
   if (!note) return;
   note.title = document.getElementById('detail-title').value;
   note.body = document.getElementById('detail-body').value;
-  saveNotes();
+  await updateNoteInDb(note.id, { title: note.title, clean_text: note.body });
   showToast('Saved');
 }
 
-function deleteNote() {
+async function deleteNote() {
   const idx = notes.findIndex(n => n.id === activeNoteId);
   if (idx === -1) return;
   const backup = { ...notes[idx] };
   notes.splice(idx, 1);
-  saveNotes();
   renderDashboard();
   renderRecent();
   goBack();
-  showToast('Deleted', () => {
+  await deleteNoteFromDb(backup.id);
+  showToast('Deleted', async () => {
     notes.splice(idx, 0, backup);
-    saveNotes();
+    await persistNote(backup);
     renderDashboard();
     renderRecent();
   }, 4000);
 }
 
-function deleteWithUndo(id) {
+async function deleteWithUndo(id) {
   const idx = notes.findIndex(n => n.id === id);
   if (idx === -1) return;
   const backup = { ...notes[idx] };
   notes.splice(idx, 1);
-  saveNotes();
   renderDashboard();
   renderRecent();
-  showToast('Deleted', () => {
+  await deleteNoteFromDb(backup.id);
+  showToast('Deleted', async () => {
     notes.splice(idx, 0, backup);
-    saveNotes();
+    await persistNote(backup);
     renderDashboard();
     renderRecent();
   }, 4000);
@@ -2565,19 +2848,6 @@ function showToast(msg, undoFn, duration) {
   }, dur);
 }
 
-// Add sample notes if empty (for demo)
-if (!notes.length) {
-  const samples = [
-    { id:'s1', text:'I need to read Atomic Habits, someone recommended it for building better habits.', source:'voice', category:'book', title:'Read Atomic Habits', summary:'Book recommendation for building better habits.', tags:['books','habits','self-improvement'], linkedThemes:['habits','productivity','self-improvement'], reminderTime:null, body:'', done:false, createdAt: new Date(Date.now()-86400000*2).toISOString() },
-    { id:'s2', text:'Had an idea for a new morning routine — wake at 6, journal for 10 mins, then exercise.', source:'voice', category:'inspiration', title:'New morning routine idea', summary:'Wake at 6am, journal 10 mins, then exercise.', tags:['morning','routine','health'], linkedThemes:['habits','productivity','health'], reminderTime:null, body:'', done:false, createdAt: new Date(Date.now()-86400000).toISOString() },
-    { id:'s3', text:'Call the dentist tomorrow at 9am to book a checkup.', source:'text', category:'reminder', title:'Call dentist at 9am', summary:'Book a dental checkup appointment.', tags:['health','appointment'], linkedThemes:['health','admin'], reminderTime:null, body:'', done:false, createdAt: new Date(Date.now()-3600000*3).toISOString() },
-    { id:'s4', text:'Need to finish the quarterly report by Friday end of day.', source:'text', category:'todo', title:'Finish quarterly report by Friday', summary:'Complete and submit the quarterly report before the weekend.', tags:['work','deadline'], linkedThemes:['productivity','work'], reminderTime:null, body:'', done:false, createdAt: new Date(Date.now()-3600000).toISOString() },
-    { id:'s5', text:'Inspiration: constraints breed creativity. The best art comes from working within limits.', source:'voice', category:'inspiration', title:'Constraints breed creativity', summary:'Working within limits produces the best creative work.', tags:['creativity','philosophy','art'], linkedThemes:['creativity','philosophy','mindset'], reminderTime:null, body:'', done:false, createdAt: new Date(Date.now()-1800000).toISOString() },
-  ];
-  notes = samples;
-  saveNotes();
-  renderRecent();
-}
 </script>
 </body>
 </html>
