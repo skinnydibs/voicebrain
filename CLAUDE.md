@@ -62,8 +62,7 @@ Each has its own colour token in CSS (e.g. `--todo`, `--todo-bg`).
 ## Git / Deploy
 - Remote: `https://github.com/skinnydibs/voicebrain` → auto-deploys to both Netlify and Cloudflare Pages on push to `main`
 - Cloudflare Pages: https://voicebrain.pages.dev/
-- Push from Git Bash (Windows): `cd /c/Users/lynnl/Projects/voicebrain && git push origin main`
-- HTTPS push fails from WSL
+- Push from Ubuntu (WSL): `cd /mnt/c/Users/lynnl/Projects/voicebrain && git push origin main`
 
 ## Upcoming: iPhone Push Notifications
 - Plan: add PWA layer (manifest.json + service worker) + Cloudflare Worker for Web Push
