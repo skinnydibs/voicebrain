@@ -457,23 +457,49 @@ nav {
 .note-card[data-cat="general"]::before { background: var(--general); }
 
 .note-card-delete {
-  position: absolute;
-  top: 10px; right: 10px;
   width: 22px; height: 22px;
   border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text3);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s, background 0.15s;
-  z-index: 2;
+  margin-left: 6px;
 }
 .note-card:hover .note-card-delete { opacity: 1; }
 .note-card-delete:hover { background: #fee2e2; color: #c0392b; }
+
+.note-card-confirm-strip {
+  display: none;
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: #fff5f5;
+  border-top: 1px solid #fecaca;
+  padding: 8px 14px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #c0392b;
+  font-weight: 500;
+  z-index: 3;
+}
+.note-card.confirming .note-card-confirm-strip { display: flex; }
+.note-card-confirm-strip button {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  font-weight: 500;
+}
+.note-card-confirm-yes { background: #c0392b; color: #fff; }
+.note-card-confirm-no { background: var(--surface2); color: var(--text2); }
 
 .note-card:hover {
   border-color: var(--border2);
@@ -1180,6 +1206,7 @@ nav {
   .dash-title { font-size: 22px; }
   .timeline-title { font-size: 22px; }
   .fab-record { bottom: 76px; }
+  .note-card-delete { opacity: 0.5; }
   .detail-modal-content { padding: 20px 16px 100px; }
 }
 </style>
@@ -1843,10 +1870,10 @@ function renderDashboard() {
 
   grid.innerHTML = filtered.map(n => `
     <div class="note-card" data-cat="${n.category}" data-id="${n.id}">
-      <button class="note-card-delete" data-delete="${n.id}" title="Delete">✕</button>
       <div class="note-card-top">
         <span class="note-badge">${catLabel(n.category)}</span>
         <span class="note-date">${formatDate(n.createdAt)}</span>
+        <button class="note-card-delete" data-delete="${n.id}" title="Delete">✕</button>
       </div>
       <div class="note-title${n.done ? ' done' : ''}">${n.title}</div>
       <div class="note-preview">${n.summary || n.text}</div>
@@ -1855,6 +1882,13 @@ function renderDashboard() {
         <span class="note-source">${n.source === 'voice' ? 'Voice' : 'Text'}</span>
         ${n.category === 'todo' ? `<div class="note-todo-check ${n.done?'done':''}" data-toggle="${n.id}">${n.done?'✓':''}</div>` : ''}
         ${n.reminderTime ? `<span style="font-size:11px;color:var(--reminder)">${formatDateTime(n.reminderTime)}</span>` : ''}
+      </div>
+      <div class="note-card-confirm-strip">
+        <span>Delete this note?</span>
+        <div style="display:flex;gap:6px">
+          <button class="note-card-confirm-no" data-confirm-no>Cancel</button>
+          <button class="note-card-confirm-yes" data-confirm-yes="${n.id}">Delete</button>
+        </div>
       </div>
     </div>
   `).join('');
@@ -1873,10 +1907,20 @@ function addCardHandlers() {
     // Click to open note
     card.addEventListener('click', () => openNote(id));
 
-    // × delete button
+    // × delete button — show confirm strip
     const delBtn = card.querySelector('[data-delete]');
     if (delBtn) {
-      delBtn.addEventListener('click', e => { e.stopPropagation(); deleteWithUndo(id); });
+      delBtn.addEventListener('click', e => { e.stopPropagation(); card.classList.add('confirming'); });
+    }
+
+    // Confirm strip — yes/no
+    const confirmYes = card.querySelector('[data-confirm-yes]');
+    if (confirmYes) {
+      confirmYes.addEventListener('click', e => { e.stopPropagation(); deleteWithUndo(id); });
+    }
+    const confirmNo = card.querySelector('[data-confirm-no]');
+    if (confirmNo) {
+      confirmNo.addEventListener('click', e => { e.stopPropagation(); card.classList.remove('confirming'); });
     }
 
     // Todo checkbox toggle
