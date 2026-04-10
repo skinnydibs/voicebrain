@@ -1035,7 +1035,9 @@ nav {
   position: fixed;
   bottom: 28px;
   left: 50%;
-  transform: translateX(-50%) translateY(calc(100% + 60px));
+  transform: translateX(-50%) translateY(20px);
+  opacity: 0;
+  pointer-events: none;
   background: var(--text);
   color: var(--bg);
   padding: 10px 20px;
@@ -1043,14 +1045,14 @@ nav {
   font-size: 13px;
   font-weight: 500;
   z-index: 400;
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease, opacity 0.25s ease;
   white-space: normal;
   max-width: 90vw;
   text-align: center;
   line-height: 1.4;
   cursor: default;
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
 .toast.undoable { cursor: pointer; }
 .toast-count { opacity: 0.6; font-size: 11px; margin-left: 6px; }
 
@@ -2467,8 +2469,10 @@ function showToast(msg, undoFn, duration) {
   t.classList.remove('undoable');
   t.onclick = null;
 
+  const dur = undoFn ? (duration || 5000) : (duration || 2000);
+
   if (undoFn) {
-    const secs = Math.round((duration || 5000) / 1000);
+    const secs = Math.round(dur / 1000);
     let remaining = secs;
     t.innerHTML = `Undo <span class="toast-count">${remaining}s</span>`;
     t.classList.add('undoable');
@@ -2484,7 +2488,11 @@ function showToast(msg, undoFn, duration) {
   }
 
   t.classList.add('show');
-  toastTimeout = setTimeout(() => { t.classList.remove('show'); clearInterval(toastCountdown); }, duration || 2000);
+  toastTimeout = setTimeout(() => {
+    console.log('[Toast] hiding:', msg || 'undo', 'after', dur + 'ms');
+    t.classList.remove('show');
+    clearInterval(toastCountdown);
+  }, dur);
 }
 
 // Add sample notes if empty (for demo)
