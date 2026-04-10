@@ -1,12 +1,12 @@
 # CLAUDE.md — VoiceBrain
 
 ## Project
-Voice-first personal note-taking app. Deployed via GitHub to Netlify.
+Voice-first personal note-taking app. Deployed via GitHub to Netlify and Cloudflare Pages.
 Stack: OpenAI Whisper (transcription), GPT-4o mini (AI organisation), vanilla JS + HTML/CSS — single file, no build tooling.
 Personal use only. API key stored in localStorage.
 
 ## Architecture
-- Single file: `index.html` (~2,184 lines — CSS, HTML, JS all inline)
+- Single file: `index.html` (~2,350 lines — CSS, HTML, JS all inline, as of 2026-04-08 v2 push)
 - No backend, no server, no framework
 - Data storage: `localStorage` (`vb_notes`, `vb_settings`)
 - Fonts: Fraunces (serif headings) + DM Sans (body), loaded from Google Fonts
@@ -59,9 +59,21 @@ Each has its own colour token in CSS (e.g. `--todo`, `--todo-bg`).
 - Bottom nav bar replaces top nav links at ≤640px
 - Responsive grid and font sizes
 
+## Git / Deploy
+- Remote: `https://github.com/skinnydibs/voicebrain` → auto-deploys to both Netlify and Cloudflare Pages on push to `main`
+- Cloudflare Pages: https://voicebrain.pages.dev/
+- Push from Git Bash (Windows): `cd /c/Users/lynnl/Projects/voicebrain && git push origin main`
+- HTTPS push fails from WSL
+
+## Upcoming: iPhone Push Notifications
+- Plan: add PWA layer (manifest.json + service worker) + Cloudflare Worker for Web Push
+- Build alongside current app — do NOT touch index.html until layer is ready
+- iOS 16.4+ supports Web Push from home screen PWAs
+- Reminder data is in localStorage; service worker needs a relay strategy
+
 ## Edit Rules
 - NEVER regenerate full files. Edit only what's requested.
 - Whisper and GPT-4o mini are the AI dependencies — do not swap models without flagging.
-- Netlify deployment — changes go live on push to main.
+- Netlify + Cloudflare Pages — both go live on push to main.
 - All state is in the `notes` array and `settings` object; both persisted to localStorage.
 - CSS variables are the single source of truth for colours — edit tokens, not inline colours.
