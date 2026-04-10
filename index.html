@@ -1463,7 +1463,7 @@ nav {
 </div>
 
 <!-- Login Screen -->
-<div id="login-screen">
+<div id="login-screen" class="hidden">
   <div class="login-box">
     <div class="login-logo">VoiceBrain</div>
     <div class="login-tagline">Your personal second brain</div>
@@ -1617,8 +1617,8 @@ function saveSettings() {
   // Re-init Supabase with new credentials and check session
   if (settings.supabaseUrl && settings.supabaseKey) {
     initSupabase();
-    getSession().then(session => {
-      if (session) { currentUser = session.user; loadNotes().then(showApp); }
+    getSession().then(async session => {
+      if (session) { currentUser = session.user; await loadNotes(); showApp(); }
       else showLoginScreen();
     });
   }
