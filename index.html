@@ -1214,6 +1214,97 @@ nav {
   .detail-modal-content { padding: 20px 16px 80px; border-radius: 20px; }
 }
 
+/* ═══ AI THREAD ═══ */
+.thread-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.thread-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 12px;
+}
+.thread-messages { display: flex; flex-direction: column; gap: 8px; }
+.thread-bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  position: relative;
+}
+.thread-bubble.ai {
+  background: #f4f3f0;
+  color: var(--text);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+  padding-right: 28px;
+}
+.thread-bubble.user {
+  background: #e8f0ea;
+  color: var(--text);
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+.thread-dismiss {
+  position: absolute;
+  top: 6px; right: 7px;
+  width: 18px; height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+}
+.thread-dismiss:hover { background: var(--border2); color: var(--text2); }
+.thread-reply-wrap {
+  display: none;
+  margin-top: 12px;
+  gap: 8px;
+  align-items: center;
+}
+.thread-reply-input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--surface2);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.thread-reply-input:focus { border-color: var(--accent); }
+.thread-reply-btn {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.thread-reply-btn:hover { background: #234a30; }
+.thread-thinking {
+  font-size: 13px;
+  color: var(--text3);
+  font-style: italic;
+  padding: 4px 0;
+}
+
 /* ═══ LOGIN SCREEN ═══ */
 #login-screen {
   position: fixed;
@@ -1431,6 +1522,14 @@ nav {
     <div class="detail-actions">
       <button class="btn-save" onclick="saveDetail()">Save changes</button>
       <button class="btn-delete" onclick="deleteNote()">Delete</button>
+    </div>
+    <div class="thread-section" id="thread-section" style="display:none">
+      <div class="thread-label">Thoughts</div>
+      <div class="thread-messages" id="thread-messages"></div>
+      <div class="thread-reply-wrap" id="thread-reply-wrap">
+        <input class="thread-reply-input" id="thread-reply-input" placeholder="Reply..." type="text">
+        <button class="thread-reply-btn" onclick="sendUserReply()">↑</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2406,7 +2505,7 @@ function addTlItemHandlers() {
 }
 
 // ═══ NOTE DETAIL ═══
-function openNote(id) {
+async function openNote(id) {
   activeNoteId = id;
   const note = notes.find(n => n.id === id);
   if (!note) return;
@@ -2451,6 +2550,7 @@ function openNote(id) {
   }
 
   showScreen('detail');
+  loadThread(id);
 }
 
 async function saveDetail() {
@@ -2494,6 +2594,192 @@ async function deleteWithUndo(id) {
     renderRecent();
   }, 4000);
 }
+
+// ═══ AI THREAD ═══
+const AI_THREAD_SYSTEM = `You are a warm, curious friend who has been reading someone's personal notes. You notice things — patterns, contradictions, recurring themes, emotional undercurrents. When something is worth mentioning, you say it briefly and naturally, like a friend who cares. When there's nothing interesting to say, you say nothing at all.
+
+You never sound like an AI assistant. You never reference "your notes" or "your data". You speak in plain, warm, human language. Maximum two sentences. No greetings, no sign-offs.
+
+If the note content or tone suggests the person is in distress, struggling emotionally, or processing something painful — respond with simple warmth and do not probe, pattern-match, or try to be clever. One gentle sentence acknowledging it's a lot is enough. Never ask follow-up questions on a note like this.
+
+If you have nothing genuinely interesting to say, respond with exactly: SILENT`;
+
+const AI_THREAD_CLOSING = '\n\nThis is your final message in this thread. Close the thought gently and naturally — don\'t ask a question, don\'t invite further response. End it in a way that feels complete.';
+
+async function loadThread(noteId) {
+  const section = document.getElementById('thread-section');
+  const messagesEl = document.getElementById('thread-messages');
+  const replyWrap = document.getElementById('thread-reply-wrap');
+  section.style.display = 'none';
+  messagesEl.innerHTML = '';
+  replyWrap.style.display = 'none';
+
+  if (!supabaseClient || !currentUser) return;
+
+  const { data, error } = await supabaseClient
+    .from('note_replies').select('*')
+    .eq('note_id', noteId)
+    .order('created_at', { ascending: true });
+
+  if (error || !data) return;
+  if (data.some(r => r.dismissed)) return; // permanently dismissed
+
+  if (data.length > 0) {
+    renderThread(data);
+  } else {
+    await generateOpener(noteId);
+  }
+}
+
+async function generateOpener(noteId) {
+  const note = notes.find(n => n.id === noteId);
+  if (!note || !settings.openaiKey) return;
+  if (notes.length < 3) return; // not enough context
+
+  // Skip simple short todos
+  const content = (note.body || note.text || '').trim();
+  if (note.category === 'todo' && content.length < 60 && (!note.tone || note.tone === 'neutral')) return;
+
+  const recentFormatted = notes
+    .filter(n => n.id !== noteId)
+    .slice(0, 19)
+    .map(n => `[${formatDate(n.createdAt)}] [${n.category}] ${n.title}: ${n.summary || n.body || n.text || ''}`)
+    .join('\n');
+
+  const userMsg = `Here is the note I just opened:
+
+Title: ${note.title}
+Category: ${note.category}
+Content: ${note.body || note.text || ''}
+Tone: ${note.tone || 'neutral'}
+Created: ${note.createdAt}
+
+Here are my recent notes for context:
+${recentFormatted}
+
+Do you notice anything worth saying about this note given my recent history? If not, respond SILENT.`;
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openaiKey },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', max_tokens: 150,
+        messages: [{ role: 'system', content: AI_THREAD_SYSTEM }, { role: 'user', content: userMsg }]
+      })
+    });
+    const data = await res.json();
+    if (data.error) return;
+    const reply = data.choices[0].message.content.trim();
+    if (reply === 'SILENT') return;
+
+    const { data: saved } = await supabaseClient
+      .from('note_replies')
+      .insert({ note_id: noteId, user_id: currentUser.id, role: 'assistant', content: reply, dismissed: false })
+      .select().single();
+
+    if (saved) renderThread([saved]);
+  } catch(e) { /* silently fail — thread is not critical */ }
+}
+
+function renderThread(replies) {
+  const section = document.getElementById('thread-section');
+  const messagesEl = document.getElementById('thread-messages');
+  const replyWrap = document.getElementById('thread-reply-wrap');
+
+  if (!replies || !replies.length) return;
+
+  messagesEl.innerHTML = replies.map(r => {
+    if (r.role === 'assistant') {
+      return `<div class="thread-bubble ai">
+        <button class="thread-dismiss" onclick="dismissThread('${activeNoteId}')" title="Dismiss">×</button>
+        ${r.content}
+      </div>`;
+    }
+    return `<div class="thread-bubble user">${r.content}</div>`;
+  }).join('');
+
+  section.style.display = 'block';
+
+  const aiCount = replies.filter(r => r.role === 'assistant').length;
+  replyWrap.style.display = aiCount > 0 ? 'flex' : 'none';
+}
+
+async function dismissThread(noteId) {
+  document.getElementById('thread-section').style.display = 'none';
+  if (!supabaseClient || !currentUser) return;
+  await supabaseClient.from('note_replies')
+    .update({ dismissed: true })
+    .eq('note_id', noteId)
+    .eq('user_id', currentUser.id);
+}
+
+async function sendUserReply() {
+  const input = document.getElementById('thread-reply-input');
+  const text = input.value.trim();
+  if (!text || !supabaseClient || !currentUser) return;
+  input.value = '';
+
+  // Save user message
+  await supabaseClient.from('note_replies')
+    .insert({ note_id: activeNoteId, user_id: currentUser.id, role: 'user', content: text, dismissed: false });
+
+  // Reload full thread
+  const { data: allReplies } = await supabaseClient
+    .from('note_replies').select('*')
+    .eq('note_id', activeNoteId)
+    .order('created_at', { ascending: true });
+
+  renderThread(allReplies);
+
+  // Check if AI can still respond
+  const aiCount = (allReplies || []).filter(r => r.role === 'assistant').length;
+  if (aiCount >= 3 || !settings.openaiKey) return;
+
+  const isFinal = aiCount === 2;
+  const systemPrompt = isFinal ? AI_THREAD_SYSTEM + AI_THREAD_CLOSING : AI_THREAD_SYSTEM;
+
+  // Build conversation history
+  const messages = [{ role: 'system', content: systemPrompt }];
+  (allReplies || []).forEach(r => {
+    messages.push({ role: r.role === 'assistant' ? 'assistant' : 'user', content: r.content });
+  });
+
+  // Show thinking indicator
+  const messagesEl = document.getElementById('thread-messages');
+  const thinking = document.createElement('div');
+  thinking.className = 'thread-thinking';
+  thinking.textContent = '...';
+  messagesEl.appendChild(thinking);
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openaiKey },
+      body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 150, messages })
+    });
+    const data = await res.json();
+    if (data.error) { thinking.remove(); return; }
+    const reply = data.choices[0].message.content.trim();
+    if (reply === 'SILENT') { thinking.remove(); return; }
+
+    await supabaseClient.from('note_replies')
+      .insert({ note_id: activeNoteId, user_id: currentUser.id, role: 'assistant', content: reply, dismissed: false });
+
+    const { data: updated } = await supabaseClient
+      .from('note_replies').select('*')
+      .eq('note_id', activeNoteId)
+      .order('created_at', { ascending: true });
+
+    renderThread(updated);
+  } catch(e) { thinking.remove(); }
+}
+
+// Allow Enter key to send reply
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('thread-reply-input');
+  if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') sendUserReply(); });
+});
 
 // ═══ TIMELINE ═══
 function filterTimeline(btn) {

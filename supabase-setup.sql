@@ -27,8 +27,13 @@ create table note_replies (
   user_id    uuid references auth.users(id) on delete cascade not null,
   created_at timestamptz default now(),
   role       text not null,   -- 'user' or 'assistant'
-  content    text not null
+  content    text not null,
+  dismissed  boolean default false
 );
+
+-- ── MIGRATION: add dismissed column if table already exists ───────────────────
+-- Run this if you created note_replies before this column was added:
+-- alter table note_replies add column if not exists dismissed boolean default false;
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
 alter table notes enable row level security;
