@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoiceBrain — Mic Test</title>
+  <link rel="manifest" href="#" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="VB Test">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #faf9f7;
+      --surface: #ffffff;
+      --border: #e8e5e0;
+      --text: #1a1916;
+      --text-secondary: #6b6760;
+      --green: #2d5a3d;
+      --green-light: #e8f0ea;
+      --red: #c0392b;
+      --red-light: #fff0f0;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 32px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 36px;
+      line-height: 1.5;
+    }
+
+    /* Status indicator */
+    .status-box {
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      transition: all 0.3s ease;
+    }
+
+    .status-box.success {
+      background: var(--green-light);
+      border-color: var(--green);
+    }
+
+    .status-box.error {
+      background: var(--red-light);
+      border-color: var(--red);
+    }
+
+    .status-box.recording {
+      background: var(--red-light);
+      border-color: var(--red);
+      animation: pulse-border 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% { border-color: var(--red); }
+      50% { border-color: #e57368; }
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      margin-right: 8px;
+      vertical-align: middle;
+      transition: background 0.3s;
+    }
+
+    .status-box.success .status-dot { background: var(--green); }
+    .status-box.error .status-dot { background: var(--red); }
+    .status-box.recording .status-dot {
+      background: var(--red);
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    .status-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+
+    .status-box.success .status-label { color: var(--green); }
+    .status-box.error .status-label { color: var(--red); }
+    .status-box.recording .status-label { color: var(--red); }
+
+    .status-detail {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    /* Waveform visualiser */
+    .waveform {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      height: 32px;
+      margin-bottom: 28px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .waveform.active { opacity: 1; }
+
+    .waveform .bar {
+      width: 3px;
+      border-radius: 2px;
+      background: var(--red);
+      height: 4px;
+      transition: height 0.1s ease;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+      margin-bottom: 10px;
+    }
+
+    .btn:last-child { margin-bottom: 0; }
+
+    .btn-primary {
+      background: var(--green);
+      color: white;
+    }
+
+    .btn-primary:hover { background: #234a30; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-stop {
+      background: var(--red);
+      color: white;
+      display: none;
+    }
+
+    .btn-stop:hover { background: #a93226; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { background: var(--bg); }
+
+    /* Result */
+    .result {
+      margin-top: 20px;
+      padding: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: left;
+      display: none;
+      line-height: 1.6;
+    }
+
+    .result.show { display: block; }
+
+    .result strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 24px 0;
+    }
+
+    .meta {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      text-align: left;
+    }
+
+    .meta strong { color: var(--text); }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-right: 4px;
+    }
+
+    .tag-auto { background: var(--green-light); color: var(--green); }
+    .tag-manual { background: #e4ecf5; color: #1a3a5c; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>VoiceBrain</h1>
+  <p class="subtitle">Mic auto-start test — checking if PWA can record without a tap</p>
+
+  <div class="status-box" id="statusBox">
+    <div>
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-label" id="statusLabel">Waiting…</span>
+    </div>
+    <div class="status-detail" id="statusDetail">Open this page with <code>?record=true</code> to test auto-start</div>
+  </div>
+
+  <div class="waveform" id="waveform">
+    <div class="bar" id="b1"></div>
+    <div class="bar" id="b2"></div>
+    <div class="bar" id="b3"></div>
+    <div class="bar" id="b4"></div>
+    <div class="bar" id="b5"></div>
+    <div class="bar" id="b6"></div>
+    <div class="bar" id="b7"></div>
+  </div>
+
+  <button class="btn btn-primary" id="btnManual" onclick="startRecording('manual')">
+    Tap to record (manual test)
+  </button>
+  <button class="btn btn-stop" id="btnStop" onclick="stopRecording()">
+    Stop recording
+  </button>
+  <button class="btn btn-secondary" onclick="reloadWithParam()">
+    Test auto-start (reload with ?record=true)
+  </button>
+
+  <div class="result" id="result"></div>
+
+  <div class="divider"></div>
+
+  <div class="meta" id="meta">
+    <strong>How to use</strong><br>
+    1. Tap "Tap to record" — should work fine<br>
+    2. Tap "Test auto-start" — reloads page with <code>?record=true</code><br>
+    3. Watch if mic starts <em>without</em> you tapping anything<br><br>
+    <strong>Then test via Shortcut:</strong><br>
+    Create an iOS Shortcut → Open URL → <code>voicebrain.pages.dev/test-record.html?record=true</code> — trigger from lock screen and observe
+  </div>
+</div>
+
+<script>
+  let stream = null;
+  let recorder = null;
+  let startTime = null;
+  let animFrame = null;
+  let analyser = null;
+  let dataArray = null;
+
+  // Check for auto-start param immediately on load
+  const params = new URLSearchParams(window.location.search);
+  const autoStart = params.get('record') === 'true';
+
+  if (autoStart) {
+    setStatus('waiting', 'Auto-start detected…', 'Attempting to start mic without user gesture');
+    // Try immediately — no setTimeout, no delay
+    startRecording('auto');
+  }
+
+  function setStatus(type, label, detail) {
+    const box = document.getElementById('statusBox');
+    const lbl = document.getElementById('statusLabel');
+    const det = document.getElementById('statusDetail');
+    box.className = 'status-box ' + (type || '');
+    lbl.textContent = label;
+    det.textContent = detail;
+  }
+
+  async function startRecording(trigger) {
+    const btnManual = document.getElementById('btnManual');
+    const btnStop = document.getElementById('btnStop');
+
+    try {
+      setStatus('waiting', 'Requesting mic…', 'Calling getUserMedia()');
+
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Success
+      const triggerType = trigger === 'auto' ? 'AUTO ✓ — no tap needed!' : 'Manual tap required';
+      const tagClass = trigger === 'auto' ? 'tag-auto' : 'tag-manual';
+
+      setStatus('recording', 'Recording…', 'Mic is active');
+
+      // Show result
+      startTime = Date.now();
+      showResult(trigger, triggerType, tagClass);
+
+      // Start waveform
+      startWaveform(stream);
+
+      // Swap buttons
+      btnManual.style.display = 'none';
+      btnStop.style.display = 'block';
+
+      // Start recorder
+      recorder = new MediaRecorder(stream);
+      recorder.start();
+
+    } catch (err) {
+      const isBlocked = err.name === 'NotAllowedError';
+      setStatus('error',
+        isBlocked ? 'Permission denied' : 'Mic error',
+        isBlocked
+          ? (trigger === 'auto' ? '✗ Auto-start blocked — tap required on this iOS version' : 'Mic permission denied in Settings')
+          : err.message
+      );
+
+      showResult(trigger, trigger === 'auto' ? 'AUTO ✗ — tap still required' : 'Error: ' + err.message, 'tag-manual');
+    }
+  }
+
+  function stopRecording() {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (animFrame) cancelAnimationFrame(animFrame);
+
+    const elapsed = startTime ? ((Date.now() - startTime) / 1000).toFixed(1) : '?';
+
+    setStatus('success', 'Stopped', `Recorded for ${elapsed}s — mic released`);
+
+    document.getElementById('btnManual').style.display = 'block';
+    document.getElementById('btnStop').style.display = 'none';
+    document.getElementById('waveform').classList.remove('active');
+
+    // Reset bars
+    for (let i = 1; i <= 7; i++) {
+      document.getElementById('b' + i).style.height = '4px';
+    }
+
+    stream = null;
+    recorder = null;
+    analyser = null;
+  }
+
+  function showResult(trigger, label, tagClass) {
+    const result = document.getElementById('result');
+    const ios = getIOSVersion();
+    result.innerHTML = `
+      <span class="tag ${tagClass}">${label}</span><br><br>
+      <strong>Trigger:</strong> ${trigger === 'auto' ? '?record=true param (no tap)' : 'Manual button tap'}<br>
+      <strong>iOS:</strong> ${ios || 'Unknown'}<br>
+      <strong>Time:</strong> ${new Date().toLocaleTimeString()}
+    `;
+    result.classList.add('show');
+  }
+
+  function startWaveform(stream) {
+    const ctx = new AudioContext();
+    const source = ctx.createMediaStreamSource(stream);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 32;
+    source.connect(analyser);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    document.getElementById('waveform').classList.add('active');
+
+    function draw() {
+      animFrame = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+      for (let i = 1; i <= 7; i++) {
+        const val = dataArray[i] || 0;
+        const h = Math.max(4, (val / 255) * 28);
+        document.getElementById('b' + i).style.height = h + 'px';
+      }
+    }
+    draw();
+  }
+
+  function reloadWithParam() {
+    const url = new URL(window.location.href);
+    url.searchParams.set('record', 'true');
+    window.location.href = url.toString();
+  }
+
+  function getIOSVersion() {
+    const match = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+    return match ? `iOS ${match[1]}.${match[2]}` : navigator.userAgent.slice(0, 60);
+  }
+</script>
+
+</body>
+</html>
