@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>VoiceBrain</title>
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="VoiceBrain">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -1658,6 +1662,9 @@ window.onload = async () => {
     currentUser = session.user;
     await loadNotes();
     showApp();
+    if (new URLSearchParams(location.search).get('record') === 'true') {
+      beginRecording('capture');
+    }
   } else {
     showLoginScreen();
   }
@@ -3243,6 +3250,9 @@ function showToast(msg, undoFn, duration) {
   }, dur);
 }
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
 </script>
 </body>
 </html>
